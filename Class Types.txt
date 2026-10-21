@@ -1,0 +1,8 @@
+Class Type	Class Code	Item Codes
+General Revenue-Taxes	R_Tax	T
+General Revenue-IGR	R_IG	B, C, D
+General Revenue-Charges	R_Ch	A
+General Revenue-Misc	R_X	U
+Expenditures-Direct	E_Dir	E, I, J, F, G, K
+Expenditures-IG	E_IG	L, M, Q, S
+
