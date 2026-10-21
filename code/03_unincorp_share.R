@@ -1,6 +1,6 @@
 
 # =============================================================================
-# unincorp_share.R
+# 03_unincorp_share.R
 # =============================================================================
 # Computes unincorporated area share (%) for each western US county.
 #
@@ -11,7 +11,7 @@
 # Output: unincorp_share.csv  (GEOID, unincorp_share_pct)
 #         One row per county; GEOID is the 5-digit Census FIPS (state + county).
 #
-# Run this script once and commit the CSV. Cty_Agg.R reads the CSV directly,
+# Run this script once and commit the CSV. 04_Cty_Agg.R reads the CSV directly,
 # avoiding the expensive spatial download and intersection on every run.
 #
 # Notes on vintage mismatches:

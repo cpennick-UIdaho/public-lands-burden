@@ -8,9 +8,9 @@ library(sandwich)     # vcovHC() for robust SEs
 library(car)          # vif()
 library(modelsummary) # regression tables and coefficient plots
 
-# Note: re-run fed_share_acs.R then Cty_Agg.R before running this script to
+# Note: re-run 02_fed_share_acs.R then 04_Cty_Agg.R before running this script to
 # ensure pct_bachelors_plus and all updated variables are present in the .rds.
-data2 <- readRDS(here("output", "Cty_Agg.rds"))
+data2 <- readRDS(here("output", "Cty_Agg.rds")) |> filter(year == 2012)  # 2012 cross-section
 
 # =============================================================================
 # PHASE 2 — VARIABLE DIAGNOSTICS

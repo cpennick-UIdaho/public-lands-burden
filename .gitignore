@@ -32,7 +32,7 @@ renv/local/
 *.tar.gz
 
 # Large raw input data (download locally; see README)
-input/2012 COG-F/
+input/* COG-F/
 input/PAD-US/
 input/*.gdb/
 

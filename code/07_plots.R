@@ -1,4 +1,4 @@
-# plots.R =====================================================================
+# 07_plots.R ==================================================================
 # Purpose: Correlations between federal land share and per-capita COG-F
 #          spending by item code and government type.
 #          Produces bar charts of top-10 correlated item codes for:
@@ -7,7 +7,7 @@
 #          Also produces scatter plots of land share vs. county-level tax
 #          and expenditure fields from Cty_Agg.rds.
 #
-# Inputs:  cogf_2012w.rds, fed_share_west.csv, ruralurbancodes2013.xls,
+# Inputs:  cogf_west.rds (2012 wave), fed_share_west.csv, ruralurbancodes2013.xls,
 #          Cty_Agg.rds
 # =============================================================================
 
@@ -50,7 +50,7 @@ state_fips_lookup <- tibble(
 # 1.  LOAD & JOIN DATA
 # =============================================================================
 
-cogf <- readRDS(here("output", "cogf_2012w.rds"))
+cogf <- readRDS(here("output", "cogf_west.rds")) |> filter(year == 2012)
 
 # Federal land share (%)
 fed_share <- read.csv(
@@ -215,6 +215,7 @@ plot_top_cors(top_nonmetro, "usfs_doi_share_pct",
 # =============================================================================
 
 cty_agg <- readRDS(here("output", "Cty_Agg.rds")) |>
+  filter(year == 2012) |>
   # Per-capita versions of raw dollar fields ($000s per person)
   mutate(across(
     c(R_Tax, R_IG, R_IG_Fed, R_Ch, R_X, E_Dir, E_IG, Total_Revenue, Total_Expenditures),
@@ -238,7 +239,7 @@ fiscal_labels <- c(
 
 # Pivot share types and fiscal variables to long form
 # any_of() on share cols allows graceful handling if usfs_doi_share_pct is not
-# yet present (requires re-running shapefile_work.R and Cty_Agg.R first)
+# yet present (requires re-running 02_fed_share_acs.R and 04_Cty_Agg.R first)
 cty_long <- cty_agg |>
   pivot_longer(
     cols      = any_of(names(share_labels)),

@@ -133,69 +133,43 @@ fed_share_west <- purrr::map2(
 # Preview results
 fed_share_west |> arrange(state, desc(fed_share_pct))
 
-# --- ACS county-level variables (2008–2012 5-year ACS) ---
-# B19013_001: Median household income
+# Save federal land share (single PAD-US 4.1 vintage; held constant across waves)
+write.csv(fed_share_west, here("output", "fed_share_west.csv"), row.names = FALSE)
+message("Saved: fed_share_west.csv")
+
+# --- ACS county-level variables (5-year ACS ending in each COG-F wave) ---
+# B19013_001: Median household income (nominal dollars of the ACS end year)
 # B11001_001: Total households
 # B15003_001: Population 25+ (denominator for education attainment)
 # B15003_022: Bachelor's degree
 # B15003_023: Master's degree
 # B15003_024: Professional school degree
 # B15003_025: Doctorate degree
-acs_raw <- get_acs(
-  geography = "county",
-  variables = c("B19013_001", "B11001_001",
-                "B15003_001", "B15003_022", "B15003_023", "B15003_024", "B15003_025"),
-  state     = western_states$fips,
-  year      = 2012,
-  survey    = "acs5",
-  key       = Sys.getenv("CENSUS_API_KEY")
-)
-
-acs_income <- acs_raw |>
-  filter(variable == "B19013_001") |>
-  select(GEOID, med_hh_income = estimate, med_hh_income_moe = moe)
-
-acs_households <- acs_raw |>
-  filter(variable == "B11001_001") |>
-  select(GEOID, n_households = estimate)
-
-# Percent of population 25+ with a bachelor's degree or higher
-acs_educ <- acs_raw |>
-  filter(variable %in% c("B15003_001", "B15003_022", "B15003_023",
-                         "B15003_024", "B15003_025")) |>
-  select(GEOID, variable, estimate) |>
-  pivot_wider(names_from = variable, values_from = estimate) |>
-  mutate(
-    pct_bachelors_plus = (B15003_022 + B15003_023 + B15003_024 + B15003_025) /
-                         B15003_001 * 100
+get_acs_west <- function(year) {
+  get_acs(
+    geography = "county",
+    variables = c(med_hh_income = "B19013_001", n_households = "B11001_001",
+                  pop25 = "B15003_001", ba = "B15003_022", ma = "B15003_023",
+                  prof = "B15003_024", phd = "B15003_025"),
+    state     = western_states$fips,
+    year      = year,
+    survey    = "acs5",
+    output    = "wide",
+    key       = Sys.getenv("CENSUS_API_KEY")
   ) |>
-  select(GEOID, pct_bachelors_plus)
+    transmute(
+      GEOID,
+      year,
+      med_hh_income     = med_hh_incomeE,
+      med_hh_income_moe = med_hh_incomeM,
+      n_households      = n_householdsE,
+      # Percent of population 25+ with a bachelor's degree or higher
+      pct_bachelors_plus = (baE + maE + profE + phdE) / pop25E * 100
+    )
+}
 
-# Join income, household count, and education onto federal land share data
-fed_share_west <- fed_share_west |>
-  left_join(acs_income,     by = "GEOID") |>
-  left_join(acs_households, by = "GEOID") |>
-  left_join(acs_educ,       by = "GEOID")
+acs_west <- purrr::map(c(2012, 2017, 2022), get_acs_west) |>
+  purrr::list_rbind()
 
-# Save results
-write.csv(fed_share_west, here("output", "fed_share_west.csv"), row.names = FALSE)
-message("Saved: fed_share_west.csv")
-
-# Join federal land share onto COG-F microdata by state + county FIPS
-cogf_2012w <- readRDS(here("output", "cogf_2012w.rds"))
-
-cogf_2012w_fed <- cogf_2012w |>
-  left_join(
-    fed_share_west |>
-      mutate(
-        fips_state  = substr(GEOID, 1, 2),
-        fips_county = substr(GEOID, 3, 5)
-      ) |>
-      select(fips_state, fips_county, fed_share_pct, usfs_share_pct, doi_share_pct, usfs_doi_share_pct, med_hh_income, med_hh_income_moe),
-    by = c("fips_state", "fips_county")
-  )
-
-saveRDS(cogf_2012w_fed, here("output", "cogf_2012w_fed.rds"))
-message("Saved: cogf_2012w_fed.rds")
-
-write.xlsx(cogf_2012w_fed, here("output", "cogf_2012w_fed.xlsx"), rowNames = FALSE)
+write.csv(acs_west, here("output", "acs_west.csv"), row.names = FALSE)
+message("Saved: acs_west.csv")
