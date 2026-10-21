@@ -38,7 +38,9 @@ input/
 ```
 
 `ruralurbancodes2013.xls` is tracked, and `04_Cty_Agg.R` / `07_plots.R` re-download it
-from USDA ERS if it is missing. TIGER boundaries are downloaded by `tigris` at run time.
+from USDA ERS if it is missing. `06b_Models_Spatial_Commute.R` likewise downloads the
+2016–2020 ACS county-to-county commuting flows to `input/commuting_flows_2016_2020.xlsx`.
+TIGER boundaries are downloaded by `tigris` at run time.
 
 ## Pipeline
 
@@ -59,9 +61,15 @@ Run in this order:
 5. **`05_Models.R`**: OLS regression models on the 2012 wave of `Cty_Agg.rds`
 6. **`06_Models_Spatial.R`**: brms panel models with a BYM2 county spatial effect
    (rook contiguity) on all waves of `Cty_Agg.rds`
+   - **`06b_Models_Spatial_Commute.R`**: alternative to step 6 with the same models, but
+     the ICAR is weighted by ACS 2016–2020 commuting flows between counties (links
+     below 0.5% of workers dropped). Fit in
+     Stan directly (`code/stan/bym2_weighted.stan`) because brms `car()` only accepts
+     binary adjacency
 7. **`07_plots.R`**: correlation bar charts and scatter plots (2012 wave)
 
-Scripts are numbered in run order. Steps 1–3 are independent of each other;
+Scripts are numbered in run order; a letter suffix (`06b_`) marks an alternative
+to the step with the same number. Steps 1–3 are independent of each other;
 step 4 needs all three.
 
 Old or unused files live in `scratch/` subfolders and are not part of the pipeline:
@@ -75,4 +83,4 @@ Old or unused files live in `scratch/` subfolders and are not part of the pipeli
 ## R packages
 
 tidyverse, here, readxl, openxlsx, sf, terra, tigris, tidycensus, tidytext,
-broom, moments, lmtest, sandwich, car, modelsummary, spdep, brms (with rstan)
+broom, moments, lmtest, sandwich, car, modelsummary, spdep, brms (with rstan), posterior, loo
