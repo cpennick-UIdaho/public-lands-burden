@@ -39,7 +39,8 @@ input/
 
 `ruralurbancodes2013.xls` is tracked, and `04_Cty_Agg.R` / `07_plots.R` re-download it
 from USDA ERS if it is missing. `06b_Models_Spatial_Commute.R` likewise downloads the
-2016–2020 ACS county-to-county commuting flows to `input/commuting_flows_2016_2020.xlsx`.
+ACS county-to-county commuting flows (2006–2010, 2011–2015, 2016–2020) to
+`input/commuting_flows_<vintage>.xlsx`.
 TIGER boundaries are downloaded by `tigris` at run time.
 
 ## Pipeline
@@ -62,9 +63,10 @@ Run in this order:
 6. **`06_Models_Spatial.R`**: brms panel models with a BYM2 county spatial effect
    (rook contiguity) on all waves of `Cty_Agg.rds`
    - **`06b_Models_Spatial_Commute.R`**: alternative to step 6 with the same models, but
-     the ICAR is weighted by ACS 2016–2020 commuting flows between counties (links
-     below 0.5% of workers dropped). Fit in
-     Stan directly (`code/stan/bym2_weighted.stan`) because brms `car()` only accepts
+     the ICAR is weighted by ACS commuting flows between counties (links below 0.5%
+     of workers dropped). Each wave uses the latest flows vintage ending before it
+     (2006–10 → 2012, 2011–15 → 2017, 2016–20 → 2022), so the spatial component is
+     wave-specific. Fit in Stan directly (`code/stan/bym2_weighted.stan`) because brms `car()` only accepts
      binary adjacency
 7. **`07_plots.R`**: correlation bar charts and scatter plots (2012 wave)
 
