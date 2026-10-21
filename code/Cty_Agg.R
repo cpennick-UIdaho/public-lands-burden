@@ -9,7 +9,7 @@ library(here)
 # Note that rowSums(..., na.rm = TRUE) treats any NA class codes as zero in the totals — worth keeping in mind if a county is missing a category entirely.
 #-----------------------------------------------------------------------------------------------------
 
-data1 <- readRDS(here("R Code and Data", "cogf_2012w_fed.rds"))
+data1 <- readRDS(here("output", "cogf_2012w_fed.rds"))
 
 # 1. Count of distinct governments per county
 gov_counts <- data1 |>
@@ -69,13 +69,13 @@ state_fips_lookup <- tibble(
                  "32",      "35",         "41",       "49",       "53",         "56")
 )
 
-fed_share_join <- read.csv(here("R Code and Data", "fed_share_west.csv"),
+fed_share_join <- read.csv(here("output", "fed_share_west.csv"),
                            colClasses = c(GEOID = "character")) |>
   select(GEOID, fed_share_pct, usfs_share_pct, doi_share_pct, usfs_doi_share_pct,
          med_hh_income, med_hh_income_moe, n_households, pct_bachelors_plus)
 
 # Download ERS Rural-Urban Continuum Codes 2013 (metro = codes 1-3, non-metro = codes 4-9)
-rucc_path <- here("R Code and Data", "ruralurbancodes2013.xls")
+rucc_path <- here("input", "ruralurbancodes2013.xls")
 if (!file.exists(rucc_path)) {
   download.file(
     "https://www.ers.usda.gov/media/5769/2013-rural-urban-continuum-codes.xls",
@@ -97,7 +97,7 @@ metro_join <- read_xls(rucc_path) |>
 # need to be updated. GEOID is the 5-digit Census FIPS (state + county).
 # =============================================================================
 
-unincorp_path <- here("R Code and Data", "unincorp_share.csv")
+unincorp_path <- here("output", "unincorp_share.csv")
 if (!file.exists(unincorp_path)) {
   stop("unincorp_share.csv not found. Run unincorp_share.R first to generate it.")
 }
@@ -127,11 +127,11 @@ data2 <- data2 |>
   relocate(c(HH_TaxBurden, HH_Expenditures), .after = PerCap_Expenditures)
 
 # Save as .rds
-saveRDS(data2, here("R Code and Data", "Cty_Agg.rds"))
+saveRDS(data2, here("output", "Cty_Agg.rds"))
 message("Saved: Cty_Agg.rds")
 
 # Also save as CSV if a plain-text copy is needed
-write.xlsx(data2, here("R Code and Data", "County_Aggregate.xlsx"))
+write.xlsx(data2, here("output", "County_Aggregate.xlsx"))
 
 # Save as xlsx with full column names for readability
 data2_xlsx <- data2 |>
@@ -165,7 +165,7 @@ data2_xlsx <- data2 |>
     "HH Expenditures (% of Med HH Income)" = HH_Expenditures,
   )
 
-write.xlsx(data2_xlsx, file = here("R Code and Data", "County_Aggregate.xlsx"),
+write.xlsx(data2_xlsx, file = here("output", "County_Aggregate.xlsx"),
            sheetName = "Cty_Agg", rowNames = FALSE)
 message("Saved: County_Aggregate.xlsx")
 

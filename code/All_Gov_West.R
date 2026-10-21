@@ -44,7 +44,7 @@ library(here)
 # 1.  File path – update this to wherever Fin_GID_2012.txt lives on your system
 # -----------------------------------------------------------------------------
 
-fin_path <- here("DATA", "2012 COG-F", "2012FinEstDAT_07242018modp_pu.txt")
+fin_path <- here("input", "2012 COG-F", "2012FinEstDAT_07242018modp_pu.txt")
 
 # --- State code lookup -------------------------------------------------------
 # NOTE: These are COG-F *internal* state codes — they are NOT Census FIPS codes.
@@ -428,8 +428,8 @@ western_state_codes <- c(
 message("Building cogf_2012w: western states combined dataset...")
 
 cogf_2012w <- parse_and_join(
-  fin_path     = here("DATA", "2012 COG-F", "2012FinEstDAT_07242018modp_pu.txt"),
-  gid_path     = here("DATA", "2012 COG-F", "Fin_GID_2012.txt"),
+  fin_path     = here("input", "2012 COG-F", "2012FinEstDAT_07242018modp_pu.txt"),
+  gid_path     = here("input", "2012 COG-F", "Fin_GID_2012.txt"),
   state_filter = western_state_codes,
   add_labels   = TRUE
 ) |>
@@ -465,13 +465,13 @@ cogf_2012w <- cogf_2012w |>
   )
 
 # Save as .rds (preserves column types; fast to reload with readRDS())
-saveRDS(cogf_2012w, here("R Code and Data", "cogf_2012w.rds"))
+saveRDS(cogf_2012w, here("output", "cogf_2012w.rds"))
 message("Saved: cogf_2012w.rds")
 
 # Also save as CSV if a plain-text copy is needed
-# write_csv(cogf_2012w, here("R Code and Data", "2012_All_Gov_West.csv"))
+# write_csv(cogf_2012w, here("output", "2012_All_Gov_West.csv"))
 
 # Save as xlsx
 library(openxlsx)
-write.xlsx(cogf_2012w, file = here("R Code and Data", "2012_All_Gov_West.xlsx"), sheetName = "2012_All_Gov_West", rowNames = FALSE)
+write.xlsx(cogf_2012w, file = here("output", "2012_All_Gov_West.xlsx"), sheetName = "2012_All_Gov_West", rowNames = FALSE)
 message("Saved: 2012_All_Gov_West.xlsx")

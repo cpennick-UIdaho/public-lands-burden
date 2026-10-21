@@ -82,6 +82,6 @@ message("Unincorporated area shares calculated for ", nrow(unincorp_share),
         " counties.")
 
 # --- Save ---------------------------------------------------------------------
-out_path <- here("R Code and Data", "unincorp_share.csv")
+out_path <- here("output", "unincorp_share.csv")
 write_csv(unincorp_share, out_path)
 message("Saved: ", out_path)

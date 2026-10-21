@@ -1,8 +1,9 @@
 
 library(tidyverse)
 library(openxlsx)
+library(here)
 
-data1 <- readRDS("cogf_2012w.rds")
+data1 <- readRDS(here("output", "cogf_2012w.rds"))
 
 # 1. Count of distinct governments per county
 gov_counts <- data1 |>
@@ -30,11 +31,11 @@ data2 <- cty_class_agg |>
   )
 
 # Save as .rds
-saveRDS(data2, "Cty_Agg.rds")
+saveRDS(data2, here("output", "Cty_Agg.rds"))
 message("Saved: Cty_Agg.rds")
 
 # Also save as CSV if a plain-text copy is needed
-# write_csv(data2, "County_Aggregate.csv")
+# write_csv(data2, here("output", "County_Aggregate.csv"))
 
 # Save as xlsx with full column names for readability
 data2_xlsx <- data2 |>
@@ -49,5 +50,5 @@ data2_xlsx <- data2 |>
     "Total Expenditures"      = Total_Expenditures
   )
 
-write.xlsx(data2_xlsx, file = "County_Aggregate.xlsx", sheetName = "Cty_Agg", rowNames = FALSE)
+write.xlsx(data2_xlsx, file = here("output", "County_Aggregate.xlsx"), sheetName = "Cty_Agg", rowNames = FALSE)
 message("Saved: County_Aggregate.xlsx")

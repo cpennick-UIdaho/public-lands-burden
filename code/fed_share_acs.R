@@ -32,8 +32,8 @@ library(tigris)
 library(tidycensus)
 options(tigris_use_cache = TRUE)
 
-pad_dir <- here("DATA", "PAD-US") #Protected Areas of the US
-gdb_path <- here("DATA", "SMA_WM.gdb")   #BLM Surface Management Agency data
+pad_dir <- here("input", "PAD-US") #Protected Areas of the US
+gdb_path <- here("input", "SMA_WM.gdb")   #BLM Surface Management Agency data
 
 # Western states: abbreviation, FIPS code, PAD-US file suffix
 western_states <- tibble(
@@ -178,11 +178,11 @@ fed_share_west <- fed_share_west |>
   left_join(acs_educ,       by = "GEOID")
 
 # Save results
-write.csv(fed_share_west, here("R Code and Data", "fed_share_west.csv"), row.names = FALSE)
+write.csv(fed_share_west, here("output", "fed_share_west.csv"), row.names = FALSE)
 message("Saved: fed_share_west.csv")
 
 # Join federal land share onto COG-F microdata by state + county FIPS
-cogf_2012w <- readRDS(here("R Code and Data", "cogf_2012w.rds"))
+cogf_2012w <- readRDS(here("output", "cogf_2012w.rds"))
 
 cogf_2012w_fed <- cogf_2012w |>
   left_join(
@@ -195,7 +195,7 @@ cogf_2012w_fed <- cogf_2012w |>
     by = c("fips_state", "fips_county")
   )
 
-saveRDS(cogf_2012w_fed, here("R Code and Data", "cogf_2012w_fed.rds"))
+saveRDS(cogf_2012w_fed, here("output", "cogf_2012w_fed.rds"))
 message("Saved: cogf_2012w_fed.rds")
 
-write.xlsx(cogf_2012w_fed, here("R Code and Data", "cogf_2012w_fed.xlsx"), rowNames = FALSE)
+write.xlsx(cogf_2012w_fed, here("output", "cogf_2012w_fed.xlsx"), rowNames = FALSE)

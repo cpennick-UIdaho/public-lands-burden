@@ -1,0 +1,43 @@
+# R session / history
+.Rhistory
+.Rapp.history
+.RData
+.RDataTmp
+.Ruserdata
+.Renviron
+
+# RStudio
+.Rproj.user/
+*.Rproj.user
+
+# Positron / VS Code
+.positron/
+.vscode/
+
+# knitr / rmarkdown / quarto
+*_cache/
+/cache/
+*.utf8.md
+*.knit.md
+/.quarto/
+rsconnect/
+
+# renv
+renv/library/
+renv/staging/
+renv/local/
+
+# R package builds
+*.Rcheck/
+*.tar.gz
+
+# Large raw input data (download locally; see README)
+input/2012 COG-F/
+input/PAD-US/
+input/*.gdb/
+
+# OS / editor cruft
+.DS_Store
+Thumbs.db
+~$*
+*.tmp

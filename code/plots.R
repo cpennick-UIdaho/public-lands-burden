@@ -50,17 +50,17 @@ state_fips_lookup <- tibble(
 # 1.  LOAD & JOIN DATA
 # =============================================================================
 
-cogf <- readRDS(here("R Code and Data", "cogf_2012w.rds"))
+cogf <- readRDS(here("output", "cogf_2012w.rds"))
 
 # Federal land share (%)
 fed_share <- read.csv(
-  here("R Code and Data", "fed_share_west.csv"),
+  here("output", "fed_share_west.csv"),
   colClasses = c(GEOID = "character")
 ) |>
   select(GEOID, fed_share_pct, usfs_share_pct, usfs_doi_share_pct)
 
 # ERS Rural-Urban Continuum Codes 2013
-rucc_path <- here("R Code and Data", "ruralurbancodes2013.xls")
+rucc_path <- here("input", "ruralurbancodes2013.xls")
 if (!file.exists(rucc_path)) {
   download.file(
     "https://www.ers.usda.gov/media/5769/2013-rural-urban-continuum-codes.xls",
@@ -214,7 +214,7 @@ plot_top_cors(top_nonmetro, "usfs_doi_share_pct",
 # 5.  SCATTER PLOTS: LAND SHARE vs. TAX & EXPENDITURE FIELDS (Cty_Agg)
 # =============================================================================
 
-cty_agg <- readRDS(here("R Code and Data", "Cty_Agg.rds")) |>
+cty_agg <- readRDS(here("output", "Cty_Agg.rds")) |>
   # Per-capita versions of raw dollar fields ($000s per person)
   mutate(across(
     c(R_Tax, R_IG, R_IG_Fed, R_Ch, R_X, E_Dir, E_IG, Total_Revenue, Total_Expenditures),
