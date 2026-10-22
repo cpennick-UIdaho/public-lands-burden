@@ -39,13 +39,23 @@ input/
 
 `ruralurbancodes2013.xls` is tracked, and `04_Cty_Agg.R` / `07_plots.R` re-download it
 from USDA ERS if it is missing. `06b_Models_Spatial_Commute.R` likewise downloads the
-ACS county-to-county commuting flows (2006–2010, 2011–2015, 2016–2020) to
-`input/commuting_flows_<vintage>.xlsx`.
+2006–2010 ACS county-to-county commuting flows to `input/commuting_flows_2006_2010.xlsx`.
 TIGER boundaries are downloaded by `tigris` at run time.
 
 ## Pipeline
 
-Run in this order:
+Run in this order, or all at once with **`00_run_all.R`**
+(`CENSUS_API_KEY=... Rscript code/00_run_all.R`). It sources each step in its own
+environment and ends with a LOO comparison across the 05b/06/06b fits. Flags at
+the top of the script turn steps on or off. The slow step 3 runs only if
+`output/unincorp_share.csv` is missing.
+
+Model outputs: `05b_`, `06_`, and `06b_` each save a results table (posterior median
+[95% CrI] per model, plus ELPD) to `output/tables/<step>_results.csv`, the underlying
+estimates to `<step>_coefs.csv`, and a coefficient plot to
+`output/figures/<step>_coefplot.png`. `00_run_all.R` adds `loo_compare_all.csv`,
+`coefs_all.csv`, and `coefplot_all.png`, which compares M1 and M2 across the pooled,
+IID, rook BYM2, and commuting BYM2 specifications.
 
 1. **`01_All_Gov_West.R`**: parses the COG-F finance + directory files for each wave
    (2012 and 2017+ record layouts) for western local governments
@@ -60,13 +70,16 @@ Run in this order:
    RUCC 2013 metro status, and unincorporated share → `output/Cty_Agg.rds`,
    `output/County_Aggregate.xlsx`
 5. **`05_Models.R`**: OLS regression models on the 2012 wave of `Cty_Agg.rds`
+   - **`05b_Models_Stan.R`**: non-spatial counterpart to steps 6/6b: the same panel,
+     formulas, and priors, fit in Stan (`code/stan/lm_county.stan`) both pooled (no
+     county effect) and with an iid county effect (BYM2 with rho = 0), so estimates and
+     LOO compare directly with the spatial fits
 6. **`06_Models_Spatial.R`**: brms panel models with a BYM2 county spatial effect
    (rook contiguity) on all waves of `Cty_Agg.rds`
    - **`06b_Models_Spatial_Commute.R`**: alternative to step 6 with the same models, but
-     the ICAR is weighted by ACS commuting flows between counties (links below 0.5%
-     of workers dropped). Each wave uses the latest flows vintage ending before it
-     (2006–10 → 2012, 2011–15 → 2017, 2016–20 → 2022), so the spatial component is
-     wave-specific. Fit in Stan directly (`code/stan/bym2_weighted.stan`) because brms `car()` only accepts
+     the ICAR is weighted by ACS 2006–2010 commuting flows between counties (the
+     vintage preceding the first wave; links below 0.5% of workers dropped). Fit in
+     Stan directly (`code/stan/bym2_weighted.stan`) because brms `car()` only accepts
      binary adjacency
 7. **`07_plots.R`**: correlation bar charts and scatter plots (2012 wave)
 
@@ -79,6 +92,8 @@ Old or unused files live in `scratch/` subfolders and are not part of the pipeli
 - `code/scratch/`: `agg r code (Overton).R` (earlier 2012-only aggregation; writes
   `Cty_Agg.rds`, so don't run it) and `parse_Fin_GID_2012.R` (standalone GID parser
   with a hardcoded working directory)
+- `input/scratch/`: later commuting-flow vintages (2011–2015, 2016–2020), unused
+  since `06b_` fixes the network at 2006–2010
 - `output/scratch/`: outputs from the earlier 2012-only pipeline (`cogf_2012w*`,
   `2012_All_Gov_West.xlsx`, `top_nonmetro*.xlsx`, `County_Aggregate.csv`)
 

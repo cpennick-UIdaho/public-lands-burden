@@ -5,7 +5,7 @@ library(sf)
 library(tigris)
 library(spdep)        # poly2nb(), moran.test()
 library(brms)         # Bayesian regression with car() spatial terms
-library(modelsummary)
+library(posterior)    # summarise_draws()
 
 options(tigris_use_cache = TRUE, mc.cores = parallel::detectCores())
 
@@ -126,7 +126,8 @@ models_sp <- list(
 walk(models_sp, \(m) print(summary(m)))  # check Rhat < 1.01, ESS, divergences
 
 # --- Model comparison (PSIS-LOO) ---------------------------------------------
-loo_compare(map(models_sp, loo))
+loo_sp <- map(models_sp, loo)
+loo_compare(loo_sp)
 
 # =============================================================================
 # RESULTS
@@ -145,14 +146,45 @@ coef_labels <- c(
   "sigma"                = "Sigma (residual)"
 )
 
-modelsummary(
-  models_sp,
-  statistic   = "conf.int",
-  coef_map    = coef_labels,
-  gof_map     = c("nobs", "elpd", "r.squared"),
-  notes       = "Posterior medians with 95% credible intervals. State and year fixed effects included but not shown. BYM2 county random effect on rook contiguity.",
-  title       = "Federal Land Share and log(HH Tax Burden) with County BYM2 Errors — Western US Counties, 2012–2022"
-)
+# Posterior median and 95% CrI per term (M0 has no b_ covariates)
+tidy_brms <- function(fit) {
+  draws <- as_draws_df(fit, variable = intersect(names(coef_labels), variables(fit)))
+  summarise_draws(draws, median, ~quantile(.x, c(0.025, 0.975))) |>
+    transmute(term = variable, median, lower = `2.5%`, upper = `97.5%`)
+}
+
+coefs_sp <- imap(models_sp, \(m, nm) tidy_brms(m) |> mutate(model = nm, .before = 1)) |>
+  list_rbind() |>
+  mutate(label = factor(coef_labels[term], levels = coef_labels),
+         model = fct_inorder(model))
+
+dir.create(here("output", "tables"),  showWarnings = FALSE)
+dir.create(here("output", "figures"), showWarnings = FALSE)
+write_csv(coefs_sp, here("output", "tables", "06_coefs.csv"))
+
+# --- Results table: median [95% CrI], one column per model -------------------
+results_sp <- coefs_sp |>
+  arrange(label) |>
+  transmute(model, term = label, est = sprintf("%.3f [%.3f, %.3f]", median, lower, upper)) |>
+  pivot_wider(names_from = model, values_from = est, names_sort = TRUE) |>  # model level order
+  bind_rows(tibble(term = "ELPD (LOO)",
+                   !!!map(loo_sp, \(l) sprintf("%.1f", l$estimates["elpd_loo", "Estimate"]))))
+# Posterior medians with 95% credible intervals. State and year fixed effects
+# included but not shown. BYM2 county random effect on rook contiguity.
+results_sp
+write_csv(results_sp, here("output", "tables", "06_results.csv"))
+
+# --- Coefficient plot: posterior median and 95% CrI --------------------------
+coefplot_sp <- coefs_sp |>
+  filter(!term %in% c("sdcar", "rhocar", "sigma")) |>
+  ggplot(aes(x = median, xmin = lower, xmax = upper, y = fct_rev(label), color = model)) +
+  geom_vline(xintercept = 0, linetype = "dashed") +
+  geom_pointrange(position = position_dodge(width = 0.6, orientation = "y", reverse = TRUE),
+                  size = 0.3) +
+  labs(title = "BYM2 Models (rook contiguity) — Coefficients with 95% CrIs",
+       x = "Coefficient (log HH Tax Burden)", y = NULL, color = NULL)
+coefplot_sp
+ggsave(here("output", "figures", "06_coefplot.png"), coefplot_sp, width = 8, height = 5)
 
 # --- Map of posterior mean spatial effect (Model 2) --------------------------
 counties_sf |>
