@@ -137,6 +137,12 @@ fed_share_west |> arrange(state, desc(fed_share_pct))
 write.csv(fed_share_west, here("output", "fed_share_west.csv"), row.names = FALSE)
 message("Saved: fed_share_west.csv")
 
+# Census API key: CENSUS_API_KEY, else the census_api_key file next to the repo
+census_key <- Sys.getenv("CENSUS_API_KEY")
+if (census_key == "" && file.exists(here("..", "census_api_key")))
+  census_key <- trimws(readLines(here("..", "census_api_key"), warn = FALSE)[1])
+if (census_key == "") stop("No Census API key: set CENSUS_API_KEY or add ../census_api_key")
+
 # --- ACS county-level variables (5-year ACS ending in each COG-F wave) ---
 # B19013_001: Median household income (nominal dollars of the ACS end year)
 # B11001_001: Total households
@@ -155,7 +161,7 @@ get_acs_west <- function(year) {
     year      = year,
     survey    = "acs5",
     output    = "wide",
-    key       = Sys.getenv("CENSUS_API_KEY")
+    key       = census_key
   ) |>
     transmute(
       GEOID,

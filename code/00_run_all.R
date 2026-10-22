@@ -15,8 +15,8 @@ library(loo)
 #
 #   Rscript code/00_run_all.R
 #
-# 02_ needs CENSUS_API_KEY in the environment, e.g.
-#   CENSUS_API_KEY="$(cat ../census_api_key)" Rscript code/00_run_all.R
+# 02_ needs a Census API key: CENSUS_API_KEY in the environment, or else the
+# census_api_key file in the folder above the repo (read at run time).
 #
 # Toggle steps below. The models (05b_, 06_, 06b_) take a long time.
 # =============================================================================
@@ -38,8 +38,9 @@ run_step <- function(script) {
   invisible(env)
 }
 
-if (run_data && Sys.getenv("CENSUS_API_KEY") == "")
-  stop("CENSUS_API_KEY is not set; 02_fed_share_acs.R needs it")
+if (run_data && Sys.getenv("CENSUS_API_KEY") == "" &&
+    !file.exists(here("..", "census_api_key")))
+  stop("No Census API key: set CENSUS_API_KEY or add ../census_api_key (02_ needs it)")
 
 # --- Data --------------------------------------------------------------------
 if (run_data) {

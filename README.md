@@ -45,7 +45,7 @@ TIGER boundaries are downloaded by `tigris` at run time.
 ## Pipeline
 
 Run in this order, or all at once with **`00_run_all.R`**
-(`CENSUS_API_KEY=... Rscript code/00_run_all.R`). It sources each step in its own
+(`Rscript code/00_run_all.R`, or source it in RStudio). It sources each step in its own
 environment and ends with a LOO comparison across the 05b/06/06b fits. Flags at
 the top of the script turn steps on or off. The slow step 3 runs only if
 `output/unincorp_share.csv` is missing.
@@ -62,7 +62,8 @@ IID, rook BYM2, and commuting BYM2 specifications.
    → `output/cogf_west.rds`
 2. **`02_fed_share_acs.R`**: computes federal land share per county from PAD-US (one
    vintage, constant across waves) and pulls ACS 5-year income, households, and
-   education for each wave (needs `CENSUS_API_KEY`)
+   education for each wave (needs a Census API key: `CENSUS_API_KEY`, or a
+   `census_api_key` file in the folder above the repo)
    → `output/fed_share_west.csv`, `output/acs_west.csv`
 3. **`03_unincorp_share.R`**: computes unincorporated area share per county
    (slow spatial step; run once) → `output/unincorp_share.csv`
