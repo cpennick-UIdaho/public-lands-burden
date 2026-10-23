@@ -5,11 +5,11 @@ library(readxl)
 library(sf)
 library(tigris)
 library(spdep)        # mat2listw(), moran.test(), n.comp.nb()
-library(rstan)        # brms car() only takes binary adjacency, so fit directly
-library(posterior)    # summarise_draws()
-library(loo)
+library(Matrix)
 
-options(tigris_use_cache = TRUE, mc.cores = parallel::detectCores())
+source(here("code", "inla_helpers.R"))  # INLA, shared priors, tidy_inla(), compare_cpo()
+
+options(tigris_use_cache = TRUE)
 
 # =============================================================================
 # SPATIAL PANEL MODELS — commuting-weighted BYM2 (alternative to 06_)
@@ -29,8 +29,9 @@ options(tigris_use_cache = TRUE, mc.cores = parallel::detectCores())
 # (2012), held fixed across waves like PAD-US and RUCC so each county has a
 # single spatial effect.
 #
-# brms car() converts any non-zero weight to 1, so the weighted BYM2 is written
-# in Stan (code/stan/bym2_weighted.stan) with brms's default priors.
+# INLA's bym2 model uses only the non-zero pattern of the graph, so the
+# weighted BYM2 is written as an rgeneric model below, with the same
+# parameterisation (Riebler et al. 2016) and priors as bym2 in 06_.
 #
 #   Model 0 — state FE + year FE + BYM2 (spatial baseline)
 #   Model 1 — adds controls, excluding federal land share
@@ -46,6 +47,14 @@ data2 <- readRDS(here("output", "Cty_Agg.rds")) |>
   )
 
 geoids <- sort(unique(data2$GEOID))
+data2$county_id <- match(data2$GEOID, geoids)
+
+# INLA predicts NA responses and treats NA covariates as 0, rather than
+# dropping the row, so check up front
+model_vars <- c("log_HH_TaxBurden", "usfs_doi_share_pct", "metro", "unincorp_share_pct",
+                "log_population", "log_GovtsPer10k", "log_med_hh_income",
+                "pct_bachelors_plus", "state_name", "year")
+stopifnot(all(map_lgl(data2[model_vars], \(x) all(!is.na(x) & !is.infinite(x)))))
 
 # =============================================================================
 # COMMUTING WEIGHT MATRIX
@@ -94,13 +103,6 @@ W[W < min_weight] <- 0
 nb <- mat2listw(W, style = "B", zero.policy = TRUE)$neighbours
 stopifnot(min(card(nb)) > 0, n.comp.nb(nb)$nc == 1)  # no islands, one graph
 
-# BYM2 scaling: geometric mean of the marginal variances of the (weighted)
-# ICAR, i.e. diag of the generalised inverse of Q = D - W (Riebler et al. 2016)
-Q <- diag(rowSums(W)) - W
-scaling_factor <- exp(mean(log(diag(MASS::ginv(Q)))))
-
-edges <- which(upper.tri(W) & W > 0, arr.ind = TRUE)
-
 # --- Motivation: spatial autocorrelation in non-spatial OLS residuals --------
 # Moran's I on county-mean residuals under the commuting weights
 ols2 <- lm(
@@ -117,65 +119,103 @@ ols2_resid <- tibble(GEOID = data2$GEOID, resid = residuals(ols2)) |>
 moran.test(ols2_resid$resid, mat2listw(W, style = "W"))
 
 # =============================================================================
+# WEIGHTED BYM2 (rgeneric)
+# =============================================================================
+# Latent vector x = (v, u), as in INLA's bym2: v (indexed by the data) is the
+# total county effect and u the scaled ICAR component, with
+#
+#   v | u ~ N( sqrt(phi / tau) u, (1 - phi) / tau I ),   u ~ ICAR(R)
+#
+# where R = D - W scaled so the geometric mean of the ICAR marginal variances
+# is 1 (Riebler et al. 2016). Theta = (log tau, logit phi).
+
+J  <- length(geoids)
+Qw <- Matrix(diag(rowSums(W)) - W, sparse = TRUE)                # weighted ICAR structure
+R  <- inla.scale.model(Qw, constr = list(A = matrix(1, 1, J), e = 0))
+log_det_R <- sum(log(head(eigen(as.matrix(R), symmetric = TRUE, only.values = TRUE)$values, J - 1)))
+
+# PC prior on logit phi for this graph, as bym2 computes it for a binary one.
+# Table of (logit phi, log density) from INLA's internal helper.
+phi_tab <- INLA:::inla.pc.bym.phi(Q = Qw, rankdef = 1, u = pc_phi_param[1],
+                                  alpha = pc_phi_param[2], return.as.table = TRUE) |>
+  str_remove("^table:") |> str_squish() |> str_split_1(" ") |> as.numeric() |>
+  matrix(ncol = 2)
+
+bym2_weighted <- function(cmd = c("graph", "Q", "mu", "initial", "log.norm.const",
+                                  "log.prior", "quit"),
+                          theta = NULL) {
+  tau <- \() exp(theta[1L])
+  phi <- \() 1 / (1 + exp(-theta[2L]))
+
+  graph <- function() Q()
+  Q <- function() {
+    k <- tau(); p <- phi()
+    I <- Matrix::Diagonal(J)
+    a <- k / (1 - p)
+    b <- -sqrt(p * k) / (1 - p)
+    rbind(cbind(a * I, b * I),
+          cbind(b * I, R + p / (1 - p) * I))
+  }
+  mu <- function() numeric(0)
+  # v | u is proper (J dims); u is intrinsic with rank J - 1
+  log.norm.const <- function() {
+    -0.5 * (2 * J - 1) * log(2 * pi) + 0.5 * (J * log(tau() / (1 - phi())) + log_det_R)
+  }
+  # pc.prec(u, alpha) on tau, as a density for log tau; tabulated PC prior on logit phi
+  log.prior <- function() {
+    lambda <- -log(prec_param[2]) / prec_param[1]
+    log(lambda / 2) - lambda * exp(-theta[1L] / 2) - theta[1L] / 2 +
+      approx(phi_tab[, 1], phi_tab[, 2], theta[2L], rule = 2)$y
+  }
+  initial <- function() c(4, -3)  # bym2 defaults
+  quit <- function() invisible()
+
+  if (is.null(theta)) theta <- initial()
+  do.call(match.arg(cmd), args = list())
+}
+
+bym2_w_model <- inla.rgeneric.define(
+  bym2_weighted, J = J, R = R, log_det_R = log_det_R,
+  phi_tab = phi_tab, prec_param = pc_prec$param
+)
+
+# =============================================================================
 # MODELS
 # =============================================================================
 
-bym2_weighted <- stan_model(here("code", "stan", "bym2_weighted.stan"))
+formulas <- list(
+  "M0: FE + BYM2" = log_HH_TaxBurden ~ factor(state_name) + factor(year),
+  "M1: + Controls" =
+    log_HH_TaxBurden ~ metro + unincorp_share_pct + log_population + log_GovtsPer10k +
+                       log_med_hh_income + pct_bachelors_plus +
+                       factor(state_name) + factor(year),
+  "M2: + Fed Share" =
+    log_HH_TaxBurden ~ usfs_doi_share_pct + metro + unincorp_share_pct +
+                       log_population + log_GovtsPer10k +
+                       log_med_hh_income + pct_bachelors_plus +
+                       factor(state_name) + factor(year)
+)
 
-# Formula is the fixed-effect part only; the county effect is always added
+# Formula is the fixed-effect part only; the county effect is always added.
+# Sum-to-zero on u, the second half of the latent vector, as bym2 does.
 fit_bym2_w <- function(formula) {
-  X <- model.matrix(formula, data2)[, -1, drop = FALSE]
-  X <- scale(X, center = TRUE, scale = FALSE)  # as brms does, so Intercept is at the mean
-  y <- model.response(model.frame(formula, data2))
-
-  fit <- sampling(
-    bym2_weighted,
-    data = list(
-      N = nrow(X), K = ncol(X), X = X, y = y,
-      J = length(geoids), county = match(data2$GEOID, geoids),
-      N_edges = nrow(edges), node1 = edges[, 1], node2 = edges[, 2],
-      weight = W[edges], scaling_factor = scaling_factor,
-      y_median = median(y)
-    ),
-    chains = 4, iter = 4000, seed = 2012,
-    control = list(adapt_delta = 0.95)
+  fit_inla(
+    update(formula, . ~ . + f(county_id, model = bym2_w_model, n = 2 * J,
+                              extraconstr = list(A = cbind(matrix(0, 1, J), matrix(1, 1, J)),
+                                                 e = 0))),
+    data2
   )
-  attr(fit, "coef_names") <- colnames(X)
-  fit
 }
 
-model0_cw <- fit_bym2_w(
-  log_HH_TaxBurden ~ factor(state_name) + factor(year)
-)
+models_cw <- map(formulas, fit_bym2_w)
 
-model1_cw <- fit_bym2_w(
-  log_HH_TaxBurden ~ metro + unincorp_share_pct + log_population + log_GovtsPer10k +
-                     log_med_hh_income + pct_bachelors_plus +
-                     factor(state_name) + factor(year)
-)
+# --- Fit checks --------------------------------------------------------------
+# mode.status 0 = optimiser converged cleanly; also see CPO failures below
+walk(models_cw, \(m) print(summary(m)))
+map_int(models_cw, \(m) m$mode$mode.status)
 
-model2_cw <- fit_bym2_w(
-  log_HH_TaxBurden ~ usfs_doi_share_pct + metro + unincorp_share_pct +
-                     log_population + log_GovtsPer10k +
-                     log_med_hh_income + pct_bachelors_plus +
-                     factor(state_name) + factor(year)
-)
-
-models_cw <- list(
-  "M0: FE + BYM2"   = model0_cw,
-  "M1: + Controls"  = model1_cw,
-  "M2: + Fed Share" = model2_cw
-)
-
-# --- Convergence -------------------------------------------------------------
-walk(models_cw, \(m) {
-  print(m, pars = c("Intercept", "b", "sdcar", "rhocar", "sigma"))  # Rhat < 1.01, ESS
-  check_hmc_diagnostics(m)                                          # divergences, treedepth
-})
-
-# --- Model comparison (PSIS-LOO) ---------------------------------------------
-loo_cw <- map(models_cw, loo)  # rstan's loo() method reads log_lik
-loo_compare(loo_cw)
+# --- Model comparison (LOO via CPO) ------------------------------------------
+compare_cpo(models_cw)
 
 # =============================================================================
 # RESULTS
@@ -190,21 +230,20 @@ coef_labels <- c(
   "log_med_hh_income"  = "log(Median HH Income)",
   "pct_bachelors_plus" = "Bachelor's Degree or Higher (%)",
   "sdcar"              = "SD (BYM2 county effect)",
-  "rhocar"             = "Rho (spatial share)",
+  "rhocar"             = "Phi (spatial share)",
   "sigma"              = "Sigma (residual)"
 )
 
-# Posterior median and 95% CrI per term
-tidy_bym2_w <- function(fit) {
-  draws <- as_draws_df(as.array(fit, pars = c("b", "sdcar", "rhocar", "sigma")))
-  summarise_draws(draws, median, ~quantile(.x, c(0.025, 0.975))) |>
-    transmute(term = c(attr(fit, "coef_names"), "sdcar", "rhocar", "sigma"),
-              median, lower = `2.5%`, upper = `97.5%`) |>
-    filter(term %in% names(coef_labels))
-}
+# rgeneric hyperparameters are named Theta1/Theta2 (log tau, logit phi)
+hyper_bym2_w <- c(hyper_sigma, list(
+  sdcar  = list(name = "Theta1 for county_id", fun = sd_from_log_prec),
+  rhocar = list(name = "Theta2 for county_id", fun = plogis)
+))
 
-coefs_cw <- imap(models_cw, \(m, nm) tidy_bym2_w(m) |> mutate(model = nm, .before = 1)) |>
+# Posterior median and 95% CrI per term
+coefs_cw <- imap(models_cw, \(m, nm) tidy_inla(m, hyper_bym2_w) |> mutate(model = nm, .before = 1)) |>
   list_rbind() |>
+  filter(term %in% names(coef_labels)) |>
   mutate(label = factor(coef_labels[term], levels = coef_labels),
          model = fct_inorder(model))
 
@@ -217,8 +256,8 @@ results_cw <- coefs_cw |>
   arrange(label) |>
   transmute(model, term = label, est = sprintf("%.3f [%.3f, %.3f]", median, lower, upper)) |>
   pivot_wider(names_from = model, values_from = est, names_sort = TRUE) |>  # model level order
-  bind_rows(tibble(term = "ELPD (LOO)",
-                   !!!map(loo_cw, \(l) sprintf("%.1f", l$estimates["elpd_loo", "Estimate"]))))
+  bind_rows(tibble(term = "ELPD (LOO, CPO)",
+                   !!!map(models_cw, \(m) sprintf("%.1f", elpd_cpo(m)))))
 # Posterior medians with 95% credible intervals. State and year fixed effects
 # included but not shown. BYM2 county effect on ACS 2006-2010 commuting weights.
 results_cw
@@ -237,11 +276,12 @@ coefplot_cw
 ggsave(here("output", "figures", "06b_coefplot.png"), coefplot_cw, width = 8, height = 5)
 
 # --- Map of posterior mean spatial effect (Model 2) --------------------------
+# First half of the latent vector is the total county effect v
 counties(state = unique(substr(geoids, 1, 2)), cb = TRUE, year = 2013) |>
   select(GEOID) |>
   filter(GEOID %in% geoids) |>
   arrange(GEOID) |>
-  mutate(car_effect = colMeans(as.matrix(model2_cw, pars = "rcar"))) |>
+  mutate(car_effect = models_cw[["M2: + Fed Share"]]$summary.random$county_id$mean[1:J]) |>
   ggplot() +
   geom_sf(aes(fill = car_effect), color = "white", linewidth = 0.1) +
   scale_fill_gradient2() +

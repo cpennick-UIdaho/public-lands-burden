@@ -19,12 +19,24 @@ run from anywhere inside the repo.
 
 ## Raw data (not in git)
 
-Download these and place them under `input/`:
+The large raw files live in Box at `Box/public-lands-burden-large-files/`. The repo
+reaches them through a gitignored symlink at the root, `public-lands-burden-large-files`.
+The folders in `input/` are relative symlinks into it. To set this up on a new machine:
+
+```sh
+ln -s ~/Library/CloudStorage/Box-Box/public-lands-burden-large-files public-lands-burden-large-files
+cd input
+for d in "2012 COG-F" "2017 COG-F" "2022 COG-F" "PAD-US"; do
+  ln -s "../public-lands-burden-large-files/$d" "$d"
+done
+```
+
+Without Box access, download the files below and place them under `input/` directly:
 
 ```
 input/
-├── 2012 COG-F/
-│   ├── 2012FinEstDAT_07242018modp_pu.txt   # COG-F individual unit finance file
+├── 2012 COG-F/                             # 2012_Individual_Unit_File.zip from census.gov
+│   ├── 2012FinEstDAT_10162019modp_pu.txt   # COG-F individual unit finance file
 │   └── Fin_GID_2012.txt                    # COG-F government ID directory
 ├── 2017 COG-F/                             # 2017_Individual_Unit_File.zip from census.gov
 │   ├── 2017FinEstDAT_09202024modp_pu.txt
@@ -33,7 +45,7 @@ input/
 │   ├── 2022FinEstDAT_07152026modp.txt
 │   └── Fin_PID_2022.txt
 ├── PAD-US/
-│   └── PADUS4_1_State<XX>.gdb              # PAD-US 4.1 state geodatabases
+│   └── PADUS4_1_State<XX>.gdb              # PAD-US 4.1 State Downloads (ScienceBase), 11 western states
 └── SMA_WM.gdb                              # BLM Surface Management Agency
 ```
 
@@ -46,12 +58,12 @@ TIGER boundaries are downloaded by `tigris` at run time.
 
 Run in this order, or all at once with **`00_run_all.R`**
 (`Rscript code/00_run_all.R`, or source it in RStudio). It sources each step in its own
-environment and ends with a LOO comparison across the 05b/06/06b fits. Flags at
+environment and ends with a LOO comparison (via INLA's CPO) across the 05b/06/06b fits. Flags at
 the top of the script turn steps on or off. The slow step 3 runs only if
 `output/unincorp_share.csv` is missing.
 
 Model outputs: `05b_`, `06_`, and `06b_` each save a results table (posterior median
-[95% CrI] per model, plus ELPD) to `output/tables/<step>_results.csv`, the underlying
+[95% CrI] per model, plus LOO ELPD from CPO) to `output/tables/<step>_results.csv`, the underlying
 estimates to `<step>_coefs.csv`, and a coefficient plot to
 `output/figures/<step>_coefplot.png`. `00_run_all.R` adds `loo_compare_all.csv`,
 `coefs_all.csv`, and `coefplot_all.png`, which compares M1 and M2 across the pooled,
@@ -71,18 +83,23 @@ IID, rook BYM2, and commuting BYM2 specifications.
    RUCC 2013 metro status, and unincorporated share → `output/Cty_Agg.rds`,
    `output/County_Aggregate.xlsx`
 5. **`05_Models.R`**: OLS regression models on the 2012 wave of `Cty_Agg.rds`
-   - **`05b_Models_Stan.R`**: non-spatial counterpart to steps 6/6b: the same panel,
-     formulas, and priors, fit in Stan (`code/stan/lm_county.stan`) both pooled (no
-     county effect) and with an iid county effect (BYM2 with rho = 0), so estimates and
-     LOO compare directly with the spatial fits
-6. **`06_Models_Spatial.R`**: brms panel models with a BYM2 county spatial effect
-   (rook contiguity) on all waves of `Cty_Agg.rds`
+   - **`05b_Models_INLA.R`**: non-spatial counterpart to steps 6/6b: the same panel,
+     formulas, and priors, fit in INLA both pooled (no county effect) and with an iid
+     county effect (BYM2 with phi = 0), so estimates and LOO compare directly with the
+     spatial fits
+6. **`06_Models_Spatial.R`**: INLA panel models with a BYM2 county spatial effect
+   (built-in `bym2`, rook contiguity) on all waves of `Cty_Agg.rds`
    - **`06b_Models_Spatial_Commute.R`**: alternative to step 6 with the same models, but
      the ICAR is weighted by ACS 2006–2010 commuting flows between counties (the
-     vintage preceding the first wave; links below 0.5% of workers dropped). Fit in
-     Stan directly (`code/stan/bym2_weighted.stan`) because brms `car()` only accepts
-     binary adjacency
+     vintage preceding the first wave; links below 0.5% of workers dropped). INLA's `bym2`
+     uses only the graph's non-zero pattern, so the weighted BYM2 is an `rgeneric` model
+     with the same parameterisation and PC priors
 7. **`07_plots.R`**: correlation bar charts and scatter plots (2012 wave)
+
+`code/inla_helpers.R` holds the priors, fitting call, posterior summaries, and CPO
+comparison shared by 05b/06/06b and `00_run_all.R`; it is sourced, not a pipeline step.
+All three use PC priors (P(SD > 1) = 0.01 on every precision; P(phi < 0.5) = 0.5 on the
+BYM2 mixing parameter) and N(0, 1) on slopes.
 
 Scripts are numbered in run order; a letter suffix (`06b_`) marks an alternative
 to the step with the same number. Steps 1–3 are independent of each other;
@@ -92,7 +109,9 @@ Old or unused files live in `scratch/` subfolders and are not part of the pipeli
 
 - `code/scratch/`: `agg r code (Overton).R` (earlier 2012-only aggregation; writes
   `Cty_Agg.rds`, so don't run it) and `parse_Fin_GID_2012.R` (standalone GID parser
-  with a hardcoded working directory)
+  with a hardcoded working directory), plus the earlier Stan/brms versions of the
+  Bayesian models (`05b_Models_Stan.R`, `06_Models_Spatial_brms.R`,
+  `06b_Models_Spatial_Commute_Stan.R`, and their models in `code/scratch/stan/`)
 - `input/scratch/`: later commuting-flow vintages (2011–2015, 2016–2020), unused
   since `06b_` fixes the network at 2006–2010
 - `output/scratch/`: outputs from the earlier 2012-only pipeline (`cogf_2012w*`,
@@ -101,4 +120,5 @@ Old or unused files live in `scratch/` subfolders and are not part of the pipeli
 ## R packages
 
 tidyverse, here, readxl, openxlsx, sf, terra, tigris, tidycensus, tidytext,
-broom, moments, lmtest, sandwich, car, modelsummary, spdep, brms (with rstan), posterior, loo
+broom, moments, lmtest, sandwich, car, modelsummary, spdep, Matrix, [INLA](https://www.r-inla.org/download-install) (not on CRAN:
+`install.packages("INLA", repos = c(getOption("repos"), INLA = "https://inla.r-inla-download.org/R/stable"))`)

@@ -24,7 +24,7 @@ library(here)
 
 cogf_files <- tribble(
   ~year, ~fin_file,                                        ~dir_file,
-  2012,  "2012 COG-F/2012FinEstDAT_07242018modp_pu.txt",  "2012 COG-F/Fin_GID_2012.txt",
+  2012,  "2012 COG-F/2012FinEstDAT_10162019modp_pu.txt",  "2012 COG-F/Fin_GID_2012.txt",
   2017,  "2017 COG-F/2017FinEstDAT_09202024modp_pu.txt",  "2017 COG-F/Fin_PID_2017.txt",
   2022,  "2022 COG-F/2022FinEstDAT_07152026modp.txt",     "2022 COG-F/Fin_PID_2022.txt"
 )
@@ -82,11 +82,20 @@ parse_cogf <- function(year, fin_file, dir_file) {
     dir <- dir |> mutate(fips_state = substr(id, 1, 2), fips_county = substr(id, 4, 6))
   }
 
-  fin |>
+  out <- fin |>
     inner_join(dir, by = "id") |>
     mutate(year = year, gov_type_code = substr(id, 3, 3)) |>
     filter(fips_state %in% names(western_state_fips),
            gov_type_code %in% names(gov_types))       # drops state governments
+
+  # Multi-county special districts (e.g. NM Eastern Regional Housing Authority
+  # in 2012) have a blank county FIPS in the directory and can't be assigned
+  no_cty <- out |> filter(is.na(fips_county)) |> distinct(id, govt_name)
+  if (nrow(no_cty) > 0) {
+    message("  Dropping ", nrow(no_cty), " govt(s) with no county FIPS: ",
+            paste(no_cty$govt_name, collapse = "; "))
+  }
+  out |> filter(!is.na(fips_county))
 }
 
 cogf_west <- pmap(cogf_files, parse_cogf) |>

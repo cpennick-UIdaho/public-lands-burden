@@ -4,10 +4,10 @@ library(here)
 library(sf)
 library(tigris)
 library(spdep)        # poly2nb(), moran.test()
-library(brms)         # Bayesian regression with car() spatial terms
-library(posterior)    # summarise_draws()
 
-options(tigris_use_cache = TRUE, mc.cores = parallel::detectCores())
+source(here("code", "inla_helpers.R"))  # INLA, shared priors, tidy_inla(), compare_cpo()
+
+options(tigris_use_cache = TRUE)
 
 # =============================================================================
 # SPATIAL PANEL MODELS — log(HH Tax Burden) with county BYM2 errors
@@ -15,8 +15,10 @@ options(tigris_use_cache = TRUE, mc.cores = parallel::detectCores())
 # County x COG-F wave panel (2012, 2017, 2022). Each model adds a BYM2 county
 # random effect: a spatially structured ICAR component (a county's effect is
 # conditional on its neighbours') plus an unstructured iid component, mixed by
-# rho. Repeated waves per county separate the iid county effect from the
+# phi. Repeated waves per county separate the iid county effect from the
 # residual sigma, which a single cross-section cannot do.
+#
+# Fit in INLA with the built-in bym2 latent model (scaled ICAR, sum-to-zero).
 #
 # Federal land share uses a single PAD-US vintage, so it is constant within
 # county: its coefficient is identified from between-county variation only.
@@ -34,6 +36,13 @@ data2 <- readRDS(here("output", "Cty_Agg.rds")) |>
     log_med_hh_income = log(med_hh_income)
   )
 
+# INLA predicts NA responses and treats NA covariates as 0, rather than
+# dropping the row, so check up front
+model_vars <- c("log_HH_TaxBurden", "usfs_doi_share_pct", "metro", "unincorp_share_pct",
+                "log_population", "log_GovtsPer10k", "log_med_hh_income",
+                "pct_bachelors_plus", "state_name", "year")
+stopifnot(all(map_lgl(data2[model_vars], \(x) all(!is.na(x) & !is.infinite(x)))))
+
 # =============================================================================
 # ADJACENCY MATRIX — rook contiguity
 # =============================================================================
@@ -44,6 +53,9 @@ counties_sf <- counties(state = unique(substr(data2$GEOID, 1, 2)), cb = TRUE, ye
   arrange(GEOID)
 
 stopifnot(nrow(counties_sf) == n_distinct(data2$GEOID))
+
+# bym2 index: row of counties_sf (and of W)
+data2$county_id <- match(data2$GEOID, counties_sf$GEOID)
 
 nb <- poly2nb(counties_sf, queen = FALSE)
 
@@ -84,77 +96,69 @@ moran.test(ols2_resid$resid, nb2listw(nb, style = "W"))
 # MODELS
 # =============================================================================
 
+formulas <- list(
+  "M0: FE + BYM2" = log_HH_TaxBurden ~ factor(state_name) + factor(year),
+  "M1: + Controls" =
+    log_HH_TaxBurden ~ metro + unincorp_share_pct + log_population + log_GovtsPer10k +
+                       log_med_hh_income + pct_bachelors_plus +
+                       factor(state_name) + factor(year),
+  "M2: + Fed Share" =
+    log_HH_TaxBurden ~ usfs_doi_share_pct + metro + unincorp_share_pct +
+                       log_population + log_GovtsPer10k +
+                       log_med_hh_income + pct_bachelors_plus +
+                       factor(state_name) + factor(year)
+)
+
+# Formula is the fixed-effect part only; the county effect is always added.
+# INLA reads only the non-zero pattern of W, so the graph is binary.
 fit_bym2 <- function(formula) {
-  brm(
-    formula,
-    data    = data2,
-    data2   = list(W = W),
-    family  = gaussian(),
-    prior   = prior(normal(0, 1), class = "b"),
-    chains  = 4, iter = 4000, seed = 2012,
-    control = list(adapt_delta = 0.95)
+  fit_inla(
+    update(formula, . ~ . + f(county_id, model = "bym2", graph = W,
+                              scale.model = TRUE, constr = TRUE,
+                              hyper = list(prec = pc_prec,
+                                           phi  = list(prior = "pc", param = pc_phi_param)))),
+    data2
   )
 }
 
-model0_sp <- fit_bym2(
-  log_HH_TaxBurden ~ factor(state_name) + factor(year) +
-                     car(W, gr = GEOID, type = "bym2")
-)
+models_sp <- map(formulas, fit_bym2)
 
-model1_sp <- fit_bym2(
-  log_HH_TaxBurden ~ metro + unincorp_share_pct + log_population + log_GovtsPer10k +
-                     log_med_hh_income + pct_bachelors_plus +
-                     factor(state_name) + factor(year) +
-                     car(W, gr = GEOID, type = "bym2")
-)
+# --- Fit checks --------------------------------------------------------------
+# mode.status 0 = optimiser converged cleanly; also see CPO failures below
+walk(models_sp, \(m) print(summary(m)))
+map_int(models_sp, \(m) m$mode$mode.status)
 
-model2_sp <- fit_bym2(
-  log_HH_TaxBurden ~ usfs_doi_share_pct + metro + unincorp_share_pct +
-                     log_population + log_GovtsPer10k +
-                     log_med_hh_income + pct_bachelors_plus +
-                     factor(state_name) + factor(year) +
-                     car(W, gr = GEOID, type = "bym2")
-)
-
-models_sp <- list(
-  "M0: FE + BYM2"   = model0_sp,
-  "M1: + Controls"  = model1_sp,
-  "M2: + Fed Share" = model2_sp
-)
-
-# --- Convergence -------------------------------------------------------------
-walk(models_sp, \(m) print(summary(m)))  # check Rhat < 1.01, ESS, divergences
-
-# --- Model comparison (PSIS-LOO) ---------------------------------------------
-loo_sp <- map(models_sp, loo)
-loo_compare(loo_sp)
+# --- Model comparison (LOO via CPO) ------------------------------------------
+compare_cpo(models_sp)
 
 # =============================================================================
 # RESULTS
 # =============================================================================
 
 coef_labels <- c(
-  "b_usfs_doi_share_pct" = "USFS+DOI Share (%)",
-  "b_metroNonMMetro"     = "Non-Metro",
-  "b_unincorp_share_pct" = "Unincorporated Share (%)",
-  "b_log_population"     = "log(Population)",
-  "b_log_GovtsPer10k"    = "log(Govts per 10k)",
-  "b_log_med_hh_income"  = "log(Median HH Income)",
-  "b_pct_bachelors_plus" = "Bachelor's Degree or Higher (%)",
-  "sdcar"                = "SD (BYM2 county effect)",
-  "rhocar"               = "Rho (spatial share)",
-  "sigma"                = "Sigma (residual)"
+  "usfs_doi_share_pct" = "USFS+DOI Share (%)",
+  "metroNon-Metro"     = "Non-Metro",
+  "unincorp_share_pct" = "Unincorporated Share (%)",
+  "log_population"     = "log(Population)",
+  "log_GovtsPer10k"    = "log(Govts per 10k)",
+  "log_med_hh_income"  = "log(Median HH Income)",
+  "pct_bachelors_plus" = "Bachelor's Degree or Higher (%)",
+  "sdcar"              = "SD (BYM2 county effect)",
+  "rhocar"             = "Phi (spatial share)",
+  "sigma"              = "Sigma (residual)"
 )
 
-# Posterior median and 95% CrI per term (M0 has no b_ covariates)
-tidy_brms <- function(fit) {
-  draws <- as_draws_df(fit, variable = intersect(names(coef_labels), variables(fit)))
-  summarise_draws(draws, median, ~quantile(.x, c(0.025, 0.975))) |>
-    transmute(term = variable, median, lower = `2.5%`, upper = `97.5%`)
-}
+# Term names (sdcar, rhocar) kept from the brms version so 00_run_all.R
+# lines up across scripts
+hyper_bym2 <- c(hyper_sigma, list(
+  sdcar  = list(name = "Log precision for county_id", fun = sd_from_log_prec),
+  rhocar = list(name = "Logit phi for county_id",     fun = plogis)
+))
 
-coefs_sp <- imap(models_sp, \(m, nm) tidy_brms(m) |> mutate(model = nm, .before = 1)) |>
+# Posterior median and 95% CrI per term (M0 has no covariates)
+coefs_sp <- imap(models_sp, \(m, nm) tidy_inla(m, hyper_bym2) |> mutate(model = nm, .before = 1)) |>
   list_rbind() |>
+  filter(term %in% names(coef_labels)) |>
   mutate(label = factor(coef_labels[term], levels = coef_labels),
          model = fct_inorder(model))
 
@@ -167,8 +171,8 @@ results_sp <- coefs_sp |>
   arrange(label) |>
   transmute(model, term = label, est = sprintf("%.3f [%.3f, %.3f]", median, lower, upper)) |>
   pivot_wider(names_from = model, values_from = est, names_sort = TRUE) |>  # model level order
-  bind_rows(tibble(term = "ELPD (LOO)",
-                   !!!map(loo_sp, \(l) sprintf("%.1f", l$estimates["elpd_loo", "Estimate"]))))
+  bind_rows(tibble(term = "ELPD (LOO, CPO)",
+                   !!!map(models_sp, \(m) sprintf("%.1f", elpd_cpo(m)))))
 # Posterior medians with 95% credible intervals. State and year fixed effects
 # included but not shown. BYM2 county random effect on rook contiguity.
 results_sp
@@ -187,8 +191,10 @@ coefplot_sp
 ggsave(here("output", "figures", "06_coefplot.png"), coefplot_sp, width = 8, height = 5)
 
 # --- Map of posterior mean spatial effect (Model 2) --------------------------
+# bym2 latent vector is (total county effect, scaled ICAR); map the first half
+J <- nrow(counties_sf)
 counties_sf |>
-  mutate(car_effect = colMeans(as_draws_matrix(model2_sp, variable = "rcar"))) |>
+  mutate(car_effect = models_sp[["M2: + Fed Share"]]$summary.random$county_id$mean[1:J]) |>
   ggplot() +
   geom_sf(aes(fill = car_effect), color = "white", linewidth = 0.1) +
   scale_fill_gradient2() +

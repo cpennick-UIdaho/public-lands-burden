@@ -31,10 +31,11 @@ renv/local/
 *.Rcheck/
 *.tar.gz
 
-# Large raw input data (download locally; see README)
-input/* COG-F/
-input/PAD-US/
-input/*.gdb/
+# Large raw input data: lives in Box, symlinked in (see README)
+public-lands-burden-large-files
+input/* COG-F
+input/PAD-US
+input/*.gdb
 
 # OS / editor cruft
 .DS_Store

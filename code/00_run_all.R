@@ -1,7 +1,8 @@
 
 library(tidyverse)
 library(here)
-library(loo)
+
+source(here("code", "inla_helpers.R"))  # compare_cpo()
 
 # =============================================================================
 # RUN ALL — sources the pipeline in order
@@ -18,7 +19,8 @@ library(loo)
 # 02_ needs a Census API key: CENSUS_API_KEY in the environment, or else the
 # census_api_key file in the folder above the repo (read at run time).
 #
-# Toggle steps below. The models (05b_, 06_, 06b_) take a long time.
+# Toggle steps below. The models (05b_, 06_, 06b_) are fit in INLA and take
+# a few minutes.
 # =============================================================================
 
 run_data     <- TRUE   # 01_, 02_, 04_: build output/Cty_Agg.rds
@@ -55,27 +57,25 @@ if (run_data)
 # --- Models ------------------------------------------------------------------
 model_scripts <- c(
   "05"  = "05_Models.R",
-  "05b" = "05b_Models_Stan.R",
+  "05b" = "05b_Models_INLA.R",
   "06"  = "06_Models_Spatial.R",
   "06b" = "06b_Models_Spatial_Commute.R"
 )
 envs <- map(model_scripts[run_models], run_step)
 
 # --- LOO across non-spatial and spatial fits ---------------------------------
-# log_lik rows follow data2 in 05b_, 06_, and 06b_, so all fits compare directly
-loos <- c(
-  if ("05b" %in% run_models) envs[["05b"]]$loo_ns,
-  if ("06"  %in% run_models) envs[["06"]]$loo_sp |>
+# CPO rows follow data2 in 05b_, 06_, and 06b_, so all fits compare directly
+fits_all <- c(
+  if ("05b" %in% run_models) envs[["05b"]]$models_ns,
+  if ("06"  %in% run_models) envs[["06"]]$models_sp |>
                                set_names(\(nm) paste(nm, "(BYM2 rook)")),
-  if ("06b" %in% run_models) envs[["06b"]]$loo_cw |>
+  if ("06b" %in% run_models) envs[["06b"]]$models_cw |>
                                set_names(\(nm) paste(nm, "(BYM2 commute)"))
 )
-if (length(loos) > 1) {
-  loo_all <- loo_compare(loos)
+if (length(fits_all) > 1) {
+  loo_all <- compare_cpo(fits_all)
   print(loo_all)
-  as.data.frame(loo_all) |>
-    rownames_to_column("model") |>
-    write_csv(here("output", "tables", "loo_compare_all.csv"))
+  write_csv(loo_all, here("output", "tables", "loo_compare_all.csv"))
 }
 
 # --- Coefficients across specifications --------------------------------------

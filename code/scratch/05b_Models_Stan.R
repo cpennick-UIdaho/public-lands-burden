@@ -41,7 +41,7 @@ geoids <- sort(unique(data2$GEOID))
 # MODELS
 # =============================================================================
 
-lm_county <- stan_model(here("code", "stan", "lm_county.stan"))
+lm_county <- stan_model(here("code", "scratch", "stan", "lm_county.stan"))
 
 fit_lm <- function(formula, has_county) {
   X <- model.matrix(formula, data2)[, -1, drop = FALSE]
