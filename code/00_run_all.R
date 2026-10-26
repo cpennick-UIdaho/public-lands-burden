@@ -2,7 +2,7 @@
 library(tidyverse)
 library(here)
 
-source(here("code", "inla_helpers.R"))  # compare_cpo()
+source(here("code", "inla_helpers.R"))  # compare_cpo(), write_html_table()
 
 # =============================================================================
 # RUN ALL — sources the pipeline in order
@@ -12,7 +12,7 @@ source(here("code", "inla_helpers.R"))  # compare_cpo()
 # values print as they would interactively; with Rscript, plots go to
 # Rplots.pdf. The model scripts (05b_, 06_, 06b_) save their results tables to
 # output/tables/ and coefficient plots to output/figures/; this script adds
-# loo_compare_all.csv, coefs_all.csv, and coefplot_all.png across them.
+# loo_compare_all.html, coefs_all.csv, and coefplot_all.png across them.
 #
 #   Rscript code/00_run_all.R
 #
@@ -75,7 +75,8 @@ fits_all <- c(
 if (length(fits_all) > 1) {
   loo_all <- compare_cpo(fits_all)
   print(loo_all)
-  write_csv(loo_all, here("output", "tables", "loo_compare_all.csv"))
+  write_html_table(loo_all, here("output", "tables", "loo_compare_all.html"),
+                   caption = "LOO (via CPO) across non-spatial and spatial fits")
 }
 
 # --- Coefficients across specifications --------------------------------------

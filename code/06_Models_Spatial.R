@@ -31,7 +31,7 @@ options(tigris_use_cache = TRUE)
 data2 <- readRDS(here("output", "Cty_Agg.rds")) |>
   mutate(
     log_HH_TaxBurden  = log(HH_TaxBurden),
-    log_GovtsPer10k   = log(GovtsPer10k),
+    log_n_govts       = log(n_govts),
     log_population    = log(population),
     log_med_hh_income = log(med_hh_income)
   )
@@ -39,7 +39,7 @@ data2 <- readRDS(here("output", "Cty_Agg.rds")) |>
 # INLA predicts NA responses and treats NA covariates as 0, rather than
 # dropping the row, so check up front
 model_vars <- c("log_HH_TaxBurden", "usfs_doi_share_pct", "metro", "unincorp_share_pct",
-                "log_population", "log_GovtsPer10k", "log_med_hh_income",
+                "log_population", "log_n_govts", "log_med_hh_income",
                 "pct_bachelors_plus", "state_name", "year")
 stopifnot(all(map_lgl(data2[model_vars], \(x) all(!is.na(x) & !is.infinite(x)))))
 
@@ -81,7 +81,7 @@ dimnames(W) <- list(counties_sf$GEOID, counties_sf$GEOID)
 # Moran's I on county-mean residuals (one value per county, ordered by GEOID)
 ols2 <- lm(
   log_HH_TaxBurden ~ usfs_doi_share_pct + metro + unincorp_share_pct +
-                     log_population + log_GovtsPer10k + log_med_hh_income +
+                     log_population + log_n_govts + log_med_hh_income +
                      pct_bachelors_plus + factor(state_name) + factor(year),
   data = data2
 )
@@ -99,12 +99,12 @@ moran.test(ols2_resid$resid, nb2listw(nb, style = "W"))
 formulas <- list(
   "M0: FE + BYM2" = log_HH_TaxBurden ~ factor(state_name) + factor(year),
   "M1: + Controls" =
-    log_HH_TaxBurden ~ metro + unincorp_share_pct + log_population + log_GovtsPer10k +
+    log_HH_TaxBurden ~ metro + unincorp_share_pct + log_population + log_n_govts +
                        log_med_hh_income + pct_bachelors_plus +
                        factor(state_name) + factor(year),
   "M2: + Fed Share" =
     log_HH_TaxBurden ~ usfs_doi_share_pct + metro + unincorp_share_pct +
-                       log_population + log_GovtsPer10k +
+                       log_population + log_n_govts +
                        log_med_hh_income + pct_bachelors_plus +
                        factor(state_name) + factor(year)
 )
@@ -140,7 +140,7 @@ coef_labels <- c(
   "metroNon-Metro"     = "Non-Metro",
   "unincorp_share_pct" = "Unincorporated Share (%)",
   "log_population"     = "log(Population)",
-  "log_GovtsPer10k"    = "log(Govts per 10k)",
+  "log_n_govts"        = "log(# Govts)",
   "log_med_hh_income"  = "log(Median HH Income)",
   "pct_bachelors_plus" = "Bachelor's Degree or Higher (%)",
   "sdcar"              = "SD (BYM2 county effect)",
@@ -172,11 +172,10 @@ results_sp <- coefs_sp |>
   transmute(model, term = label, est = sprintf("%.3f [%.3f, %.3f]", median, lower, upper)) |>
   pivot_wider(names_from = model, values_from = est, names_sort = TRUE) |>  # model level order
   bind_rows(tibble(term = "ELPD (LOO, CPO)",
-                   !!!map(models_sp, \(m) sprintf("%.1f", elpd_cpo(m)))))
-# Posterior medians with 95% credible intervals. State and year fixed effects
-# included but not shown. BYM2 county random effect on rook contiguity.
+                   !!!map(models_sp, \(m) sprintf("%.3f", elpd_cpo(m)))))
 results_sp
-write_csv(results_sp, here("output", "tables", "06_results.csv"))
+write_html_table(results_sp, here("output", "tables", "06_results.html"),
+                 caption = "Posterior medians with 95% credible intervals. State and year fixed effects included but not shown. BYM2 county random effect on rook contiguity.")
 
 # --- Coefficient plot: posterior median and 95% CrI --------------------------
 coefplot_sp <- coefs_sp |>

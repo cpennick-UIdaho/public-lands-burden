@@ -15,8 +15,9 @@ options(tigris_use_cache = TRUE)
 # fit in INLA (code/inla_helpers.R), so estimates and LOO are directly
 # comparable with the spatial fits. Each formula is fit two ways:
 #
-#   Pooled — no county effect; Bayesian analogue of the OLS in 05_Models.R
-#            (and of the ols2 used for Moran's I in 06_/06b_)
+#   Pooled — no county effect; Bayesian analogue of the ols2 used for
+#            Moran's I in 06_/06b_ (not of 05_Models.R, which is a 2012-only
+#            cross-section with a different control set)
 #   IID    — iid county effect, i.e. BYM2 with phi = 0. Against the BYM2 fits
 #            this isolates the gain from spatial structure; against Pooled,
 #            the gain from modelling repeated observations of a county.
@@ -29,7 +30,7 @@ options(tigris_use_cache = TRUE)
 data2 <- readRDS(here("output", "Cty_Agg.rds")) |>
   mutate(
     log_HH_TaxBurden  = log(HH_TaxBurden),
-    log_GovtsPer10k   = log(GovtsPer10k),
+    log_n_govts       = log(n_govts),
     log_population    = log(population),
     log_med_hh_income = log(med_hh_income)
   )
@@ -40,7 +41,7 @@ data2$county_id <- match(data2$GEOID, geoids)
 # INLA predicts NA responses and treats NA covariates as 0, rather than
 # dropping the row, so check up front
 model_vars <- c("log_HH_TaxBurden", "usfs_doi_share_pct", "metro", "unincorp_share_pct",
-                "log_population", "log_GovtsPer10k", "log_med_hh_income",
+                "log_population", "log_n_govts", "log_med_hh_income",
                 "pct_bachelors_plus", "state_name", "year")
 stopifnot(all(map_lgl(data2[model_vars], \(x) all(!is.na(x) & !is.infinite(x)))))
 
@@ -51,12 +52,12 @@ stopifnot(all(map_lgl(data2[model_vars], \(x) all(!is.na(x) & !is.infinite(x))))
 formulas <- list(
   "M0: FE" = log_HH_TaxBurden ~ factor(state_name) + factor(year),
   "M1: + Controls" =
-    log_HH_TaxBurden ~ metro + unincorp_share_pct + log_population + log_GovtsPer10k +
+    log_HH_TaxBurden ~ metro + unincorp_share_pct + log_population + log_n_govts +
                        log_med_hh_income + pct_bachelors_plus +
                        factor(state_name) + factor(year),
   "M2: + Fed Share" =
     log_HH_TaxBurden ~ usfs_doi_share_pct + metro + unincorp_share_pct +
-                       log_population + log_GovtsPer10k +
+                       log_population + log_n_govts +
                        log_med_hh_income + pct_bachelors_plus +
                        factor(state_name) + factor(year)
 )
@@ -94,7 +95,7 @@ coef_labels <- c(
   "metroNon-Metro"     = "Non-Metro",
   "unincorp_share_pct" = "Unincorporated Share (%)",
   "log_population"     = "log(Population)",
-  "log_GovtsPer10k"    = "log(Govts per 10k)",
+  "log_n_govts"        = "log(# Govts)",
   "log_med_hh_income"  = "log(Median HH Income)",
   "pct_bachelors_plus" = "Bachelor's Degree or Higher (%)",
   "sd_county"          = "SD (iid county effect)",
@@ -126,11 +127,10 @@ results_ns <- coefs_ns |>
   transmute(model, term = label, est = sprintf("%.3f [%.3f, %.3f]", median, lower, upper)) |>
   pivot_wider(names_from = model, values_from = est, names_sort = TRUE) |>  # model level order
   bind_rows(tibble(term = "ELPD (LOO, CPO)",
-                   !!!map(models_ns, \(m) sprintf("%.1f", elpd_cpo(m)))))
-# Posterior medians with 95% credible intervals. State and year fixed effects
-# included but not shown. IID = non-spatial county random effect.
+                   !!!map(models_ns, \(m) sprintf("%.3f", elpd_cpo(m)))))
 results_ns
-write_csv(results_ns, here("output", "tables", "05b_results.csv"))
+write_html_table(results_ns, here("output", "tables", "05b_results.html"),
+                 caption = "Posterior medians with 95% credible intervals. State and year fixed effects included but not shown. IID = non-spatial county random effect.")
 
 # --- Coefficient plot: posterior median and 95% CrI --------------------------
 coefplot_ns <- coefs_ns |>

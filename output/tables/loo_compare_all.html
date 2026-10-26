@@ -1,0 +1,138 @@
+<style>table { border-collapse: collapse; font-family: sans-serif; } th, td { padding: 4px 10px; border-bottom: 1px solid #ccc; } caption { caption-side: bottom; text-align: left; color: #555; }</style>
+<table>
+<caption>LOO (via CPO) across non-spatial and spatial fits</caption>
+ <thead>
+  <tr>
+   <th style="text-align:left;"> model </th>
+   <th style="text-align:right;"> elpd_diff </th>
+   <th style="text-align:right;"> se_diff </th>
+   <th style="text-align:right;"> elpd_loo </th>
+   <th style="text-align:right;"> se_elpd_loo </th>
+   <th style="text-align:right;"> waic </th>
+   <th style="text-align:right;"> dic </th>
+   <th style="text-align:right;"> cpo_failures </th>
+  </tr>
+ </thead>
+<tbody>
+  <tr>
+   <td style="text-align:left;"> M0: FE (IID) </td>
+   <td style="text-align:right;"> 0.000 </td>
+   <td style="text-align:right;"> 0.000 </td>
+   <td style="text-align:right;"> -34.608 </td>
+   <td style="text-align:right;"> 58.282 </td>
+   <td style="text-align:right;"> 120.114 </td>
+   <td style="text-align:right;"> -130.645 </td>
+   <td style="text-align:right;"> 0 </td>
+  </tr>
+  <tr>
+   <td style="text-align:left;"> M0: FE + BYM2 (BYM2 commute) </td>
+   <td style="text-align:right;"> -0.064 </td>
+   <td style="text-align:right;"> 1.318 </td>
+   <td style="text-align:right;"> -34.671 </td>
+   <td style="text-align:right;"> 58.397 </td>
+   <td style="text-align:right;"> 112.317 </td>
+   <td style="text-align:right;"> -130.630 </td>
+   <td style="text-align:right;"> 0 </td>
+  </tr>
+  <tr>
+   <td style="text-align:left;"> M0: FE + BYM2 (BYM2 rook) </td>
+   <td style="text-align:right;"> -0.203 </td>
+   <td style="text-align:right;"> 1.091 </td>
+   <td style="text-align:right;"> -34.811 </td>
+   <td style="text-align:right;"> 58.389 </td>
+   <td style="text-align:right;"> 121.243 </td>
+   <td style="text-align:right;"> -131.498 </td>
+   <td style="text-align:right;"> 0 </td>
+  </tr>
+  <tr>
+   <td style="text-align:left;"> M2: + Fed Share (BYM2 commute) </td>
+   <td style="text-align:right;"> -5.978 </td>
+   <td style="text-align:right;"> 5.634 </td>
+   <td style="text-align:right;"> -40.586 </td>
+   <td style="text-align:right;"> 58.365 </td>
+   <td style="text-align:right;"> 124.551 </td>
+   <td style="text-align:right;"> -122.285 </td>
+   <td style="text-align:right;"> 0 </td>
+  </tr>
+  <tr>
+   <td style="text-align:left;"> M2: + Fed Share (BYM2 rook) </td>
+   <td style="text-align:right;"> -6.156 </td>
+   <td style="text-align:right;"> 5.969 </td>
+   <td style="text-align:right;"> -40.764 </td>
+   <td style="text-align:right;"> 58.372 </td>
+   <td style="text-align:right;"> 124.962 </td>
+   <td style="text-align:right;"> -120.906 </td>
+   <td style="text-align:right;"> 0 </td>
+  </tr>
+  <tr>
+   <td style="text-align:left;"> M1: + Controls (BYM2 commute) </td>
+   <td style="text-align:right;"> -6.250 </td>
+   <td style="text-align:right;"> 5.778 </td>
+   <td style="text-align:right;"> -40.858 </td>
+   <td style="text-align:right;"> 58.350 </td>
+   <td style="text-align:right;"> 123.013 </td>
+   <td style="text-align:right;"> -121.310 </td>
+   <td style="text-align:right;"> 0 </td>
+  </tr>
+  <tr>
+   <td style="text-align:left;"> M1: + Controls (BYM2 rook) </td>
+   <td style="text-align:right;"> -6.373 </td>
+   <td style="text-align:right;"> 6.080 </td>
+   <td style="text-align:right;"> -40.980 </td>
+   <td style="text-align:right;"> 58.358 </td>
+   <td style="text-align:right;"> 125.370 </td>
+   <td style="text-align:right;"> -120.518 </td>
+   <td style="text-align:right;"> 0 </td>
+  </tr>
+  <tr>
+   <td style="text-align:left;"> M1: + Controls (IID) </td>
+   <td style="text-align:right;"> -6.925 </td>
+   <td style="text-align:right;"> 5.984 </td>
+   <td style="text-align:right;"> -41.533 </td>
+   <td style="text-align:right;"> 58.273 </td>
+   <td style="text-align:right;"> 126.078 </td>
+   <td style="text-align:right;"> -118.180 </td>
+   <td style="text-align:right;"> 0 </td>
+  </tr>
+  <tr>
+   <td style="text-align:left;"> M2: + Fed Share (IID) </td>
+   <td style="text-align:right;"> -7.006 </td>
+   <td style="text-align:right;"> 5.963 </td>
+   <td style="text-align:right;"> -41.614 </td>
+   <td style="text-align:right;"> 58.279 </td>
+   <td style="text-align:right;"> 126.179 </td>
+   <td style="text-align:right;"> -118.047 </td>
+   <td style="text-align:right;"> 0 </td>
+  </tr>
+  <tr>
+   <td style="text-align:left;"> M1: + Controls (Pooled) </td>
+   <td style="text-align:right;"> -808.623 </td>
+   <td style="text-align:right;"> 49.701 </td>
+   <td style="text-align:right;"> -843.231 </td>
+   <td style="text-align:right;"> 34.333 </td>
+   <td style="text-align:right;"> 1686.430 </td>
+   <td style="text-align:right;"> 1684.407 </td>
+   <td style="text-align:right;"> 0 </td>
+  </tr>
+  <tr>
+   <td style="text-align:left;"> M2: + Fed Share (Pooled) </td>
+   <td style="text-align:right;"> -809.729 </td>
+   <td style="text-align:right;"> 49.698 </td>
+   <td style="text-align:right;"> -844.337 </td>
+   <td style="text-align:right;"> 34.320 </td>
+   <td style="text-align:right;"> 1688.639 </td>
+   <td style="text-align:right;"> 1686.415 </td>
+   <td style="text-align:right;"> 0 </td>
+  </tr>
+  <tr>
+   <td style="text-align:left;"> M0: FE (Pooled) </td>
+   <td style="text-align:right;"> -903.451 </td>
+   <td style="text-align:right;"> 51.583 </td>
+   <td style="text-align:right;"> -938.059 </td>
+   <td style="text-align:right;"> 33.437 </td>
+   <td style="text-align:right;"> 1876.114 </td>
+   <td style="text-align:right;"> 1874.888 </td>
+   <td style="text-align:right;"> 0 </td>
+  </tr>
+</tbody>
+</table>

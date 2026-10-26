@@ -78,3 +78,16 @@ compare_cpo <- function(fits) {
   ) |>
     arrange(desc(elpd_diff))
 }
+
+# --- HTML tables -------------------------------------------------------------
+# Numeric columns rounded to 3 decimals; preformatted strings pass through as
+# is. Missing cells (terms not in a model) are left blank.
+write_html_table <- function(df, path, caption = NULL) {
+  old <- options(knitr.kable.NA = "")
+  on.exit(options(old))
+  style <- paste("<style>table { border-collapse: collapse; font-family: sans-serif; }",
+                 "th, td { padding: 4px 10px; border-bottom: 1px solid #ccc; }",
+                 "caption { caption-side: bottom; text-align: left; color: #555; }</style>")
+  tbl <- knitr::kable(df, format = "html", digits = 3, caption = caption)
+  writeLines(c(style, as.character(tbl)), path)
+}

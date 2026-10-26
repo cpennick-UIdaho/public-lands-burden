@@ -1,0 +1,107 @@
+<style>table { border-collapse: collapse; font-family: sans-serif; } th, td { padding: 4px 10px; border-bottom: 1px solid #ccc; } caption { caption-side: bottom; text-align: left; color: #555; }</style>
+<table>
+<caption>Posterior medians with 95% credible intervals. State and year fixed effects included but not shown. IID = non-spatial county random effect.</caption>
+ <thead>
+  <tr>
+   <th style="text-align:left;"> term </th>
+   <th style="text-align:left;"> M0: FE (Pooled) </th>
+   <th style="text-align:left;"> M1: + Controls (Pooled) </th>
+   <th style="text-align:left;"> M2: + Fed Share (Pooled) </th>
+   <th style="text-align:left;"> M0: FE (IID) </th>
+   <th style="text-align:left;"> M1: + Controls (IID) </th>
+   <th style="text-align:left;"> M2: + Fed Share (IID) </th>
+  </tr>
+ </thead>
+<tbody>
+  <tr>
+   <td style="text-align:left;"> USFS+DOI Share (%) </td>
+   <td style="text-align:left;">  </td>
+   <td style="text-align:left;">  </td>
+   <td style="text-align:left;"> 0.000 [-0.001, 0.001] </td>
+   <td style="text-align:left;">  </td>
+   <td style="text-align:left;">  </td>
+   <td style="text-align:left;"> 0.000 [-0.002, 0.002] </td>
+  </tr>
+  <tr>
+   <td style="text-align:left;"> Non-Metro </td>
+   <td style="text-align:left;">  </td>
+   <td style="text-align:left;"> 0.131 [0.051, 0.210] </td>
+   <td style="text-align:left;"> 0.130 [0.050, 0.211] </td>
+   <td style="text-align:left;">  </td>
+   <td style="text-align:left;"> 0.083 [-0.046, 0.212] </td>
+   <td style="text-align:left;"> 0.082 [-0.049, 0.212] </td>
+  </tr>
+  <tr>
+   <td style="text-align:left;"> Unincorporated Share (%) </td>
+   <td style="text-align:left;">  </td>
+   <td style="text-align:left;"> -0.004 [-0.007, -0.002] </td>
+   <td style="text-align:left;"> -0.004 [-0.007, -0.002] </td>
+   <td style="text-align:left;">  </td>
+   <td style="text-align:left;"> -0.005 [-0.010, -0.001] </td>
+   <td style="text-align:left;"> -0.005 [-0.010, -0.001] </td>
+  </tr>
+  <tr>
+   <td style="text-align:left;"> log(Population) </td>
+   <td style="text-align:left;">  </td>
+   <td style="text-align:left;"> -0.143 [-0.177, -0.108] </td>
+   <td style="text-align:left;"> -0.143 [-0.177, -0.108] </td>
+   <td style="text-align:left;">  </td>
+   <td style="text-align:left;"> -0.134 [-0.187, -0.080] </td>
+   <td style="text-align:left;"> -0.134 [-0.187, -0.080] </td>
+  </tr>
+  <tr>
+   <td style="text-align:left;"> log(# Govts) </td>
+   <td style="text-align:left;">  </td>
+   <td style="text-align:left;"> 0.094 [0.032, 0.156] </td>
+   <td style="text-align:left;"> 0.094 [0.032, 0.156] </td>
+   <td style="text-align:left;">  </td>
+   <td style="text-align:left;"> 0.107 [0.013, 0.201] </td>
+   <td style="text-align:left;"> 0.107 [0.013, 0.201] </td>
+  </tr>
+  <tr>
+   <td style="text-align:left;"> log(Median HH Income) </td>
+   <td style="text-align:left;">  </td>
+   <td style="text-align:left;"> 0.723 [0.559, 0.886] </td>
+   <td style="text-align:left;"> 0.723 [0.559, 0.887] </td>
+   <td style="text-align:left;">  </td>
+   <td style="text-align:left;"> 0.290 [0.124, 0.456] </td>
+   <td style="text-align:left;"> 0.290 [0.123, 0.456] </td>
+  </tr>
+  <tr>
+   <td style="text-align:left;"> Bachelor's Degree or Higher (%) </td>
+   <td style="text-align:left;">  </td>
+   <td style="text-align:left;"> 0.004 [0.000, 0.007] </td>
+   <td style="text-align:left;"> 0.004 [0.000, 0.007] </td>
+   <td style="text-align:left;">  </td>
+   <td style="text-align:left;"> 0.005 [0.001, 0.009] </td>
+   <td style="text-align:left;"> 0.005 [0.001, 0.009] </td>
+  </tr>
+  <tr>
+   <td style="text-align:left;"> SD (iid county effect) </td>
+   <td style="text-align:left;">  </td>
+   <td style="text-align:left;">  </td>
+   <td style="text-align:left;">  </td>
+   <td style="text-align:left;"> 0.468 [0.435, 0.504] </td>
+   <td style="text-align:left;"> 0.432 [0.401, 0.466] </td>
+   <td style="text-align:left;"> 0.433 [0.401, 0.467] </td>
+  </tr>
+  <tr>
+   <td style="text-align:left;"> Sigma (residual) </td>
+   <td style="text-align:left;"> 0.511 [0.492, 0.532] </td>
+   <td style="text-align:left;"> 0.473 [0.455, 0.492] </td>
+   <td style="text-align:left;"> 0.473 [0.455, 0.492] </td>
+   <td style="text-align:left;"> 0.215 [0.205, 0.225] </td>
+   <td style="text-align:left;"> 0.216 [0.206, 0.227] </td>
+   <td style="text-align:left;"> 0.216 [0.206, 0.227] </td>
+  </tr>
+  <tr>
+   <td style="text-align:left;"> ELPD (LOO, CPO) </td>
+   <td style="text-align:left;"> -938.059 </td>
+   <td style="text-align:left;"> -843.231 </td>
+   <td style="text-align:left;"> -844.337 </td>
+   <td style="text-align:left;"> -34.608 </td>
+   <td style="text-align:left;"> -41.533 </td>
+   <td style="text-align:left;"> -41.614 </td>
+  </tr>
+</tbody>
+</table>

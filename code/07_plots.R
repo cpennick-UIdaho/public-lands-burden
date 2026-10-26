@@ -141,7 +141,8 @@ compute_cors <- function(data, pop_df, fed_df) {
     filter(!is.na(share_pct)) |>
     group_by(share_type, gov_type, item_code) |>
     summarise(
-      r = cor(share_pct, amount_pc, use = "complete.obs"),
+      # NA (not a warning) when either variable is constant across counties
+      r = if (isTRUE(sd(share_pct) > 0 && sd(amount_pc) > 0)) cor(share_pct, amount_pc) else NA_real_,
       n = n(),
       .groups = "drop"
     ) |>
@@ -158,7 +159,7 @@ cors_nonmetro <- compute_cors(cogf_nonmetro, county_pop_nm, county_fed_nm)
 
 build_top10 <- function(cors_df) {
   cors_df |>
-    filter(!grepl("9[0-9]$", item_code)) |>
+    filter(!grepl("9[0-9]$", item_code), !is.na(r)) |>
     group_by(share_type, gov_type) |>
     slice_max(abs(r), n = 10) |>
     arrange(share_type, gov_type, desc(abs(r))) |>
@@ -218,7 +219,7 @@ cty_agg <- readRDS(here("output", "Cty_Agg.rds")) |>
   filter(year == 2012) |>
   # Per-capita versions of raw dollar fields ($000s per person)
   mutate(across(
-    c(R_Tax, R_IG, R_IG_Fed, R_Ch, R_X, E_Dir, E_IG, Total_Revenue, Total_Expenditures),
+    c(R_Tax, R_IG, R_IG_Fed, R_Ch, R_Oth, E_Dir, E_IG, Total_Revenue, Total_Expenditures),
     ~ . / population,
     .names = "PerCap_{.col}"
   ))
@@ -228,7 +229,7 @@ fiscal_labels <- c(
   PerCap_R_IG               = "PC IGR Revenue",
   PerCap_R_IG_Fed           = "PC Federal IG Revenue",
   PerCap_R_Ch               = "PC Charges Revenue",
-  PerCap_R_X                = "PC Misc Revenue",
+  PerCap_R_Oth              = "PC Misc Revenue",
   PerCap_E_Dir              = "PC Direct Expenditures",
   PerCap_E_IG               = "PC IG Expenditures",
   PerCap_Total_Revenue      = "PC Total Revenue",
@@ -259,7 +260,7 @@ cty_long <- cty_agg |>
 
 # One plot per fiscal variable; panels for each share type
 walk(levels(cty_long$fiscal_label), function(fvar) {
-  cty_long |>
+  p <- cty_long |>
     filter(fiscal_label == fvar) |>
     ggplot(aes(x = share_pct, y = fiscal_val)) +
     geom_point(alpha = 0.35, size = 0.9) +
@@ -268,19 +269,16 @@ walk(levels(cty_long$fiscal_label), function(fvar) {
       title = fvar,
       x     = "Land Share (%)",
       y     = fvar
-    ) |>
-    print()
+    )
+  print(p)
 })
 
 # =============================================================================
 # 6.  NON-METRO DEEP DIVE: PC Tax Revenue vs. USFS + DOI Land Share
 # =============================================================================
 
+# Cty_Agg already carries usfs_doi_share_pct and metro
 cty_agg |>
-  left_join(state_fips_lookup, by = "state_name") |>
-  mutate(GEOID = paste0(state_fips, fips_county)) |>
-  left_join(fed_share_west |> select(GEOID, usfs_doi_share_pct), by = "GEOID") |>
-  left_join(metro_join     |> select(GEOID, metro),             by = "GEOID") |>
   dplyr::filter(metro == "Non-Metro", !is.na(usfs_doi_share_pct), !is.na(PerCap_R_Tax)) |>
   ggplot(aes(x = usfs_doi_share_pct, y = PerCap_R_Tax)) +
   geom_point(alpha = 0.4) +
