@@ -24,13 +24,15 @@ library(tidyverse)
 library(openxlsx)
 library(readxl)
 library(tidycensus)
-library(here)
+
+# Explicit repo root — all file paths resolve here regardless of active .Rproj
+repo <- "C:/Users/chelseap/OneDrive - University of Idaho/Documents/GitHub/public-lands-burden"
 
 # =============================================================================
 # PART 1 — COG-F COUNTY AGGREGATION
 # =============================================================================
 
-data1 <- readRDS(here("cogf_2022w.rds"))
+data1 <- readRDS(file.path(repo, "cogf_2022w.rds"))
 
 gov_counts <- data1 |>
   distinct(state_code, county_name, id) |>
@@ -91,7 +93,7 @@ data2 <- data2 |>
 # PART 3 — ACS PULL (gated; 2022 5-year ACS)
 # =============================================================================
 
-acs_cache_path <- here("acs_cache_2022.csv")
+acs_cache_path <- file.path(repo, "acs_cache_2022.csv")
 western_fips   <- unique(data1$fips_state)
 
 if (file.exists(acs_cache_path)) {
@@ -147,14 +149,14 @@ if (file.exists(acs_cache_path)) {
 # PART 4 — JOIN SUPPLEMENTARY DATA
 # =============================================================================
 
-land_share_path <- here("fed_land_share.csv")
+land_share_path <- file.path(repo, "fed_land_share.csv")
 if (!file.exists(land_share_path)) {
   stop("fed_land_share.csv not found. Run fed_land_share.R first to generate it.")
 }
 fed_land_share <- read.csv(land_share_path, colClasses = c(GEOID = "character")) |>
   select(GEOID, fed_share_pct, usfs_share_pct, doi_share_pct, usfs_doi_share_pct)
 
-rucc_path <- here("ruralurbancodes2013.xls")
+rucc_path <- file.path(repo, "ruralurbancodes2013.xls")
 if (!file.exists(rucc_path)) {
   download.file("https://www.ers.usda.gov/media/5769/2013-rural-urban-continuum-codes.xls",
                 destfile = rucc_path, mode = "wb")
@@ -165,7 +167,7 @@ metro_join <- read_xls(rucc_path) |>
          metro = if_else(RUCC_2013 <= 3, "Metro", "Non-Metro")) |>
   select(GEOID, RUCC_2013, metro)
 
-unincorp_path <- here("unincorp_share.csv")
+unincorp_path <- file.path(repo, "unincorp_share.csv")
 if (!file.exists(unincorp_path)) {
   stop("unincorp_share.csv not found. Run unincorp_share.R first to generate it.")
 }
@@ -192,7 +194,7 @@ data2 <- data2 |>
 # PART 5 — SAVE
 # =============================================================================
 
-saveRDS(data2, here("Cty_Agg_2022.rds"))
+saveRDS(data2, file.path(repo, "Cty_Agg_2022.rds"))
 message("Saved: Cty_Agg_2022.rds — ", nrow(data2), " counties")
 
 data2_xlsx <- data2 |>
@@ -226,7 +228,7 @@ data2_xlsx <- data2 |>
   )
 
 write.xlsx(data2_xlsx,
-           file      = here("County_Aggregate_2022.xlsx"),
+           file      = file.path(repo,"County_Aggregate_2022.xlsx"),
            sheetName = "Cty_Agg_2022",
            rowNames  = FALSE)
 message("Saved: County_Aggregate_2022.xlsx")
